@@ -46,4 +46,4 @@ The user must setup the following things to make full use of this framework:
 
 Collaboration
 -------------
-Please feel free to contribute to this code base. For any queries, contact parul100495@gmail.com
+Please feel free to contribute to this code base. For any queries, contact https://www.linkedin.com/in/parulgupta04/
