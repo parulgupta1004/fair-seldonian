@@ -75,7 +75,7 @@ uv run python -m fair_seldonian.experiments.plots
 @software{fair_seldonian,
   author = {Parul Gupta},
   title  = {Fair Seldonian Framework},
-  year   = {2026}
+  year   = {2020}
 }
 ```
 
