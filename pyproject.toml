@@ -21,11 +21,11 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "numpy",
-    "pandas",
-    "scikit-learn",
-    "scipy",
-    "torch",
+    "numpy>=1.23",
+    "pandas>=1.5",
+    "scikit-learn>=1.2",
+    "scipy>=1.10",
+    "torch>=2.0",
 ]
 
 [project.optional-dependencies]
@@ -44,6 +44,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 path = "src/fair_seldonian/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+exclude = ["results/", "docs/", ".github/", "exp/"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/fair_seldonian"]
@@ -74,6 +77,34 @@ select = ["E", "F", "I"]
 [tool.isort]
 profile = "black"
 src_paths = ["src", "tests"]
+
+[tool.towncrier]
+package = "fair_seldonian"
+directory = "changes"
+filename = "CHANGELOG.md"
+start_string = "<!-- towncrier release notes start -->\n"
+underlines = ["", "", ""]
+title_format = "## {version} — {project_date}"
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removed"
+name = "Removed"
+showcontent = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

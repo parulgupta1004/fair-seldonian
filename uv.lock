@@ -506,13 +506,13 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "matplotlib", marker = "extra == 'plots'" },
-    { name = "numpy" },
-    { name = "pandas" },
+    { name = "numpy", specifier = ">=1.23" },
+    { name = "pandas", specifier = ">=1.5" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "ray", marker = "extra == 'experiments'" },
-    { name = "scikit-learn" },
-    { name = "scipy" },
-    { name = "torch" },
+    { name = "scikit-learn", specifier = ">=1.2" },
+    { name = "scipy", specifier = ">=1.10" },
+    { name = "torch", specifier = ">=2.0" },
 ]
 provides-extras = ["dev", "experiments", "plots"]
 
