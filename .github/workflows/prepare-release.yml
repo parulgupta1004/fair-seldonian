@@ -1,0 +1,47 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 0.2.0)"
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install towncrier
+
+      - name: Bump version
+        run: |
+          sed -i 's/^__version__ = ".*"/__version__ = "${{ inputs.version }}"/' \
+            src/fair_seldonian/__init__.py
+
+      - name: Build changelog
+        run: towncrier build --yes --version ${{ inputs.version }}
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: release/v${{ inputs.version }}
+          commit-message: "Prepare release ${{ inputs.version }}"
+          title: "Release ${{ inputs.version }}"
+          body: |
+            Automated release preparation:
+            - Bumped version to `${{ inputs.version }}`
+            - Built changelog with towncrier
+
+            After merging, create a GitHub Release with tag `v${{ inputs.version }}` to publish to PyPI.
