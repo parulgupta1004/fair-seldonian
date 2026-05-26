@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+
+# uv
+uv.lock
+
+# Experiment outputs
+exp/
+*.npz
+
+# Logs
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
