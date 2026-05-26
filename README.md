@@ -2,8 +2,10 @@
 
 *Fairness-constrained machine learning with high-confidence guarantees*
 
+[![PyPI](https://img.shields.io/pypi/v/fair-seldonian?logo=pypi&logoColor=white)](https://pypi.org/project/fair-seldonian/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![Build](https://img.shields.io/github/actions/workflow/status/parulgupta1004/fair-seldonian/ci.yml?branch=master&label=build&logo=github)](https://github.com/parulgupta1004/fair-seldonian/actions)
+[![codecov](https://codecov.io/gh/parulgupta1004/fair-seldonian/branch/master/graph/badge.svg)](https://codecov.io/gh/parulgupta1004/fair-seldonian)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/parulgupta1004/fair-seldonian/blob/master/LICENSE)
 [![Docs](https://img.shields.io/badge/docs-Sphinx-8CA1AF?logo=readthedocs&logoColor=white)](https://parulgupta1004.github.io/fair-seldonian/)
 [![Paper](https://img.shields.io/badge/paper-Science%20(2019)-orange)](https://www.science.org/doi/10.1126/science.aag3311)
@@ -32,7 +34,12 @@ uv sync --extra experiments      # + Ray for parallel experiments
 uv sync --extra plots            # + matplotlib for visualization
 ```
 
-Or with pip: `pip install -e ".[experiments,plots]"`
+Or with pip:
+
+```bash
+pip install fair-seldonian
+pip install "fair-seldonian[experiments,plots]"
+```
 
 ## Usage
 
