@@ -2,6 +2,17 @@
 
 <!-- towncrier release notes start -->
 
+## 1.0.0
+
+### Added
+
+- Pyrefly type checker integration with zero errors across the codebase. (pyrefly)
+
+### Fixed
+
+- Eliminated implicit `None` returns in `simple_logistic`, `eval_ghat`, and `ghat` for proper error propagation. (type-safety)
+
+
 ## 0.1.0
 
 Initial release.
