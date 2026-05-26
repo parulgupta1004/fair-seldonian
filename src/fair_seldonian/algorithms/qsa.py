@@ -1,9 +1,11 @@
 from sklearn.model_selection import train_test_split
-from logistic_regression_functions import *
+from ..models.logistic_regression import (
+    simple_logistic, fHat, eval_ghat, ghat,
+    candidate_ratio,
+)
 from scipy.optimize import minimize
 import numpy as np
 import torch
-candidate_ratio = 0.40
 
 
 def QSA(X, Y, T, seldonian_type, init_sol, init_sol1):
@@ -16,7 +18,7 @@ def QSA(X, Y, T, seldonian_type, init_sol, init_sol1):
     :param seldonian_type: The mode used in the experiment
     :param init_sol: The initial theta values for the model
     :param init_sol1: The additional initial theta values for the model
-    :return: (theta, theta1, passed_safety) tuple containing optimal theta values and bool whether the candidate solution passed safety test or not.
+    :return: (theta, theta1, passed_safety) tuple
     """
     cand_data_X, safe_data_X, cand_data_Y, safe_data_Y = train_test_split(X, Y,
                                                                           test_size = 1 - candidate_ratio,
@@ -74,7 +76,6 @@ def get_cand_solution(cand_data_X, cand_data_Y, cand_data_T, candidate_ratio,
     res = minimize(cand_obj, x0 = init_theta, method = 'Powell',
                      options = {'disp': False, 'maxiter': 10000},
                      args = (cand_data_X, cand_data_Y, cand_data_T, candidate_ratio, seldonian_type))
-    # ndarray -> tensor of theta
     theta_numpy = res.x[:-1]
     theta1_numpy = res.x[-1]
     theta0 = torch.tensor(theta_numpy)
@@ -84,8 +85,7 @@ def get_cand_solution(cand_data_X, cand_data_Y, cand_data_T, candidate_ratio,
 
 def cand_obj(theta, cand_data_X, cand_data_Y, cand_data_T, candidate_ratio, seldonian_type):
     """
-    This function calculates the value of the objective function which would be
-    minimized by the optimizer.
+    Objective function minimized by the optimizer.
 
     :param theta: The theta values for the model
     :param cand_data_X: The features of the candidate dataset
@@ -132,10 +132,9 @@ def _get_cand_solution2(cand_data_X, cand_data_Y, cand_data_T, candidate_ratio, 
     theta = init_sol.detach().numpy()
     theta1 = init_sol1.detach().numpy()
     init_theta = np.concatenate((theta, theta1))
-    res = minimize(cand_obj2, x0 = init_theta, method = 'BFGS',
+    res = minimize(_cand_obj2, x0 = init_theta, method = 'BFGS',
                      options = {'disp': False, 'maxiter': 12000},
                      args = (cand_data_X, cand_data_Y, cand_data_T, candidate_ratio, seldonian_type, fin_lambda))
-    # ndarray -> tensor of theta
     theta_numpy = res.x[:-1]
     theta1_numpy = res.x[-1]
     theta0 = torch.tensor(theta_numpy)

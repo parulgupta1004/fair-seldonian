@@ -1,8 +1,8 @@
 import math
 from enum import Enum
 from scipy import stats
+import numpy as np
 import torch
-# Author: Parul Gupta
 
 
 def eval_estimate(element, Y, predicted_Y, T):

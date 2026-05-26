@@ -1,11 +1,8 @@
-from equation_parser import *
-from synthetic_data import *
+from fair_seldonian.constraints.expression_tree import *
+from fair_seldonian.constraints.inequalities import Inequality
+from fair_seldonian.data.synthetic import *
 import pandas as pd
 import torch
-# This is a simple test file to test contraint tree
-# and evaluations of the constraint.
-#
-# Author: Parul Gupta
 
 
 if __name__ == "__main__":
@@ -25,7 +22,6 @@ if __name__ == "__main__":
     Y = pd.Series([1.0 for i in range(T.shape[0])])
     print(T[T.astype(str) == "1"].shape[0] / T.shape[0])
 
-    # print(pd.concat([X, Y, T], axis = 1))
     male_y = Y[T.astype(str) == "1"]
     print(male_y[male_y.astype(str) == "1.0"].shape[0] / male_y.shape[0])
     female_y = Y[T.astype(str) == "0"]
@@ -42,6 +38,3 @@ if __name__ == "__main__":
                                                                  True, 1, False)
     print("Confidence Interval for expression tree:")
     print(f" Hoeffding Inequality: [{l_hoeffding}, {u_hoeffding}]")
-
-
-

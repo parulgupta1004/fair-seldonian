@@ -1,7 +1,7 @@
 from sklearn.linear_model import LogisticRegression
-from equation_parser import *
-from inequalities import *
-from equation_parser_extension import *
+from ..constraints.expression_tree import construct_expr_tree_base, eval_expr_tree_conf_interval_base
+from ..constraints.expression_tree_ext import construct_expr_tree, eval_expr_tree_conf_interval
+from ..constraints.inequalities import Inequality
 import numpy as np
 import torch
 
@@ -13,17 +13,14 @@ candidate_ratio = 0.40
 
 def predict(theta, theta1, X):
     """
-    This is the predict function for Logistic Regression. This can be changed into predict function of the user defined model.
-    Currently, it implements the following:
-    \frac{1}{1 + e^-(X.theta + theta1)}
+    This is the predict function for Logistic Regression.
+    Currently, it implements: 1 / (1 + e^-(X.theta + theta1))
 
     :param theta: The optimal theta values for the model
     :param theta1: The additional optimal theta values for the model
     :param X: The features of the dataset
     :return: The probability value of label 1 of the complete dataset
     """
-    # returns tensor
-    # \frac{1}{1 + e^-(X.theta + theta1)}
     if theta1 is None or theta is None:
         return torch.ones(len(X))
     return torch.pow(
@@ -39,9 +36,7 @@ def predict(theta, theta1, X):
 
 def fHat(theta, theta1, X, Y):
     """
-    This is the main objective function.
-    This must be change by the user according to his/her needs.
-    Currently, it implements negative log loss of the model.
+    Main objective function: negative log loss.
 
     :param theta: The optimal theta values for the model
     :param theta1: The additional optimal theta values for the model
@@ -49,7 +44,6 @@ def fHat(theta, theta1, X, Y):
     :param Y: The true labels of the dataset
     :return: The negative log loss
     """
-    # -ve log loss
     pred = predict(theta, theta1, X)
     predicted_Y = torch.stack([torch.sub(1, pred), pred], dim = 1)
     loss = torch.nn.CrossEntropyLoss()
@@ -58,14 +52,12 @@ def fHat(theta, theta1, X, Y):
 
 def simple_logistic(X, Y):
     """
-    This function runs the simple logistic regression.
-    This must be replaced by the user to include his/her own model.
+    Runs simple logistic regression.
 
     :param X: The features of the dataset
     :param Y: The true labels of the dataset
     :return: The theta values (parameters) of the model
     """
-    # return tensor
     try:
         reg = LogisticRegression(solver = 'lbfgs').fit(X, Y)
         theta0 = reg.intercept_[0]

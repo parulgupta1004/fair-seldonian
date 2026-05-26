@@ -1,6 +1,5 @@
 import math
-# Author: Parul
-# get confidence bounds from operators
+
 
 def isMod(element):
     """

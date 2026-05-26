@@ -1,7 +1,6 @@
-import numpy as np
-from get_bounds import *
-from inequalities import *
-# Author: Parul Gupta
+from .bounds import eval_math_bound
+from .inequalities import eval_estimate, eval_func_bound
+
 
 ####################
 # Construct Parser #
@@ -11,37 +10,24 @@ class expr_tree:
     An expression tree node of the constraint tree
     """
     def __init__(self, value):
-        """
-        Constructor to create a node
-        :param value:
-        """
         self.value = value
         self.left = None
         self.right = None
 
 
 def isOperator(element):
-    # A utility function to check if 'element' is an operator
-    #:param element: expr_tree node
-    #:return: bool
     if element == '+' or element == '-' or element == '*' or element == '/' or element == '^':
         return True
     return False
 
 
 def isMod(element):
-    # A utility function to check if 'element' is mod function
-    # :param element: expr_tree node
-    # :return: bool
     if element == "abs":
         return True
     return False
 
 
 def isFunc(element):
-    # A utility function to check if 'element' is one of FP, FN, TP, TN
-    # :param element: expr_tree node
-    # :return: bool
     if element.startswith("FP") or element.startswith("FN") or element.startswith("TP") or element.startswith("TN"):
         return True
     return False
@@ -56,30 +42,22 @@ def construct_expr_tree_base(rev_polish_notation):
     """
     rev_polish_notation = rev_polish_notation.split(' ')
     stack = []
-    # Traverse through every element of input expression
     for element in rev_polish_notation:
-        # if operand, simply push into stack
         if not isOperator(element) and not isMod(element):
             t = expr_tree(element)
             stack.append(t)
-        # Operator/mod
         else:
-            # if mod, right node will be None
             if isMod(element):
                 t = expr_tree(element)
                 t1 = None
                 t2 = stack.pop()
             else:
-                # Pop the operands
                 t = expr_tree(element)
                 t1 = stack.pop()
                 t2 = stack.pop()
-            # make them children
             t.right = t1
             t.left = t2
-            # Add this subexpression to stack
             stack.append(t)
-    # Only element  will be the root of expression tree
     t = stack.pop()
     return t
 
@@ -105,9 +83,8 @@ def eval_expr_tree_base(t_node, Y, predicted_Y, T):
                 return eval_estimate(t_node.value, Y, predicted_Y, T)
             return float(t_node.value)
         elif y is None:
-            # only one unary operator supported
             if isMod(t_node.value):
-                return np.abs(np.float(x))
+                return abs(float(x))
             return None
         else:
             if t_node.value == '+':
@@ -142,14 +119,13 @@ def eval_expr_tree_conf_interval_base(t_node, Y, predicted_Y, T, delta, inequali
     :param T: pandas::Series The sensitive attributes of the dataset
     :param delta: float in [0, 1] The significance level
     :param inequality: Enum The inequality to be used - Hoeffding/T-test
-    :param candidate_safety_ratio: The candidate to dafety ratio used in the experiment
+    :param candidate_safety_ratio: The candidate to safety ratio used in the experiment
     :param predict_bound: Bool to tell whether we are finding bound for candidate or safety data
     :param modified_h: Bool to tell whether or not modified confidence bound is to be used
     :return: upper and lower bound of the estimate of the constraint
     """
     if t_node is not None:
         if t_node.right is not None and t_node.right.value is not None:
-            # propagate conf bound for binary operator
             child_delta = delta/2
         else:
             child_delta = delta
@@ -161,10 +137,8 @@ def eval_expr_tree_conf_interval_base(t_node, Y, predicted_Y, T, delta, inequali
             if isFunc(t_node.value):
                 return eval_func_bound(t_node.value, Y, predicted_Y, T, delta,
                                        inequality, candidate_safety_ratio, predict_bound, modified_h)
-            # number value
             return float(t_node.value), float(t_node.value)
         elif l_y is None and u_y is None:
-            # only one unary operator supported
             if isMod(t_node.value):
                 return eval_math_bound(l_x, u_x, l_y, u_y, 'abs')
             return None, None
@@ -202,6 +176,3 @@ def inorder(t_node):
         inorder(t_node.left)
         print(t_node.value, end=' ')
         inorder(t_node.right)
-
-
-

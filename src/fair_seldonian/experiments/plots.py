@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from gather_results import gather_results
+from .results import gather_results
 import numpy as np
 
 csv_path = 'exp/lag_exp/csv/'
@@ -37,7 +37,7 @@ def loadAndPlotResults(fileName, ylabel, output_file, is_yAxis_prob, legend_loc)
     plt.legend ( loc = legend_loc, fontsize = 12 )
     plt.tight_layout ()
 
-    plt.savefig( output_file, bbox_inchesstr = 'tight' )
+    plt.savefig( output_file, bbox_inches = 'tight' )
     plt.show( block = False )
 
 

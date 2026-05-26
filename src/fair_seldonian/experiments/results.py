@@ -34,7 +34,7 @@ def addMoreResults(newFileId, ms, seldonian_solutions_found, seldonian_fs, seldo
     new_LS_failures_g1 = newFile [ 'LS_failures_g1']
     new_LS_upper_bound = newFile['LS_upper_bound']
 
-    if type(ms) == type(None):
+    if ms is None:
         return [new_ms, new_seldonian_solutions_found, new_seldonian_fs, new_seldonian_failures_g1,
                  new_seldonian_upper_bound,
                  new_LS_solutions_found, new_LS_fs, new_LS_failures_g1, new_LS_upper_bound]
@@ -54,19 +54,16 @@ def addMoreResults(newFileId, ms, seldonian_solutions_found, seldonian_fs, seldo
 
 
 def stderror(v):
-    non_nan = np.count_nonzero(~np.isnan(v))  # number of valid (non NaN) elements in the vector
+    non_nan = np.count_nonzero(~np.isnan(v))
     return np.nanstd(v, ddof = 1) / np.sqrt(non_nan)
 
 
 def saveToCSV(ms, resultsQSA, resultsLS, filename):
     nCols = resultsQSA.shape[1]
 
-    # The output CSV file will have columns corresponding to:
-    #     (1) m; (2) QSA mean value; (3) QSA standard error bar size; (4) LS mean value; (5) LS standard error bar size
     with open( filename, mode = 'w' ) as file:
         writer = csv.writer( file, delimiter = ',' )
 
-        # There will be one column per value of m (amount of training data)
         for col in range( nCols ):
 
             cur_m = ms[ col ]
@@ -112,4 +109,3 @@ def gather_results():
     saveToCSV(ms, seldonian_solutions_found, LS_solutions_found, csv_path + 'solutions_found.csv' )
     saveToCSV(ms, seldonian_failures_g1, LS_failures_g1, csv_path + 'failures_g1.csv')
     saveToCSV(ms,  seldonian_upper_bound,      LS_upper_bound,     csv_path+'upper_bound.csv')
-

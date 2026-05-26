@@ -2,8 +2,6 @@ from random import random, seed
 from sklearn.model_selection import train_test_split
 import numpy as np
 import pandas as pd
-# This code is meant to generate synthetic data
-# to run the experiments.
 
 
 def get_data(N, features, t_ratio, tp0_ratio, tp1_ratio, random_seed):
@@ -39,9 +37,7 @@ def get_data(N, features, t_ratio, tp0_ratio, tp1_ratio, random_seed):
     return pd.concat([X, Y, T], axis = 1)
 
 
-# split data points
 def data_split(frac, All, random_state, mTest):
-    # We know that All = X, Y, T
     all_train, all_test, Y_train, Y_test = train_test_split(All, All.iloc[:, -2], test_size=mTest, random_state=42)
     # test dataset
     T_test = all_test.iloc[:, -1]
@@ -55,4 +51,3 @@ def data_split(frac, All, random_state, mTest):
     X = subsampling.iloc[:, :-2]
     Y = subsampling.iloc[:, -2]
     return np.array(X_test), np.array(Y_test), np.array(T_test), np.array(X), np.array(Y), np.array(T)
-
