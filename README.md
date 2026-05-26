@@ -3,8 +3,8 @@
 *Fairness-constrained machine learning with high-confidence guarantees*
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/downloads/)
-[![Build](https://img.shields.io/github/actions/workflow/status/parul100495/fair-seldonian/ci.yml?branch=master&label=build&logo=github)](https://github.com/parul100495/fair-seldonian/actions)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/parul100495/fair-seldonian/blob/master/LICENSE)
+[![Build](https://img.shields.io/github/actions/workflow/status/parulgupta1004/fair-seldonian/ci.yml?branch=master&label=build&logo=github)](https://github.com/parulgupta1004/fair-seldonian/actions)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/parulgupta1004/fair-seldonian/blob/master/LICENSE)
 [![Docs](https://img.shields.io/badge/docs-Sphinx-8CA1AF?logo=readthedocs&logoColor=white)](https://parulgupta1004.github.io/fair-seldonian/)
 [![Paper](https://img.shields.io/badge/paper-Science%20(2019)-orange)](https://www.science.org/doi/10.1126/science.aag3311)
 
@@ -19,13 +19,13 @@ Built on the Seldonian algorithm framework by [Thomas et al. (2019)](https://www
 | | |
 |---|---|
 | **Documentation** | [parulgupta1004.github.io/fair-seldonian](https://parulgupta1004.github.io/fair-seldonian/) |
-| **Repository** | [github.com/parul100495/fair-seldonian](https://github.com/parul100495/fair-seldonian) |
+| **Repository** | [github.com/parulgupta1004/fair-seldonian](https://github.com/parulgupta1004/fair-seldonian) |
 | **Paper** | Thomas et al., *Science* 366 (2019) — [doi:10.1126/science.aag3311](https://www.science.org/doi/10.1126/science.aag3311) |
 
 ## Installation
 
 ```bash
-git clone https://github.com/parul100495/fair-seldonian.git
+git clone https://github.com/parulgupta1004/fair-seldonian.git
 cd fair-seldonian
 uv sync                          # core dependencies
 uv sync --extra experiments      # + Ray for parallel experiments

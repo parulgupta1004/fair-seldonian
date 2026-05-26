@@ -10,7 +10,7 @@ The recommended installation uses `uv <https://docs.astral.sh/uv/>`_:
 
 .. code-block:: bash
 
-   git clone https://github.com/parul100495/fair-seldonian.git
+   git clone https://github.com/parulgupta1004/fair-seldonian.git
    cd fair-seldonian
    uv sync
 

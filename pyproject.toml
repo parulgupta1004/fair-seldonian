@@ -34,9 +34,9 @@ experiments = ["ray"]
 plots = ["matplotlib"]
 
 [project.urls]
-Homepage = "https://github.com/parul100495/fair-seldonian"
+Homepage = "https://github.com/parulgupta1004/fair-seldonian"
 Documentation = "https://parulgupta1004.github.io/fair-seldonian/index.html"
-Repository = "https://github.com/parul100495/fair-seldonian"
+Repository = "https://github.com/parulgupta1004/fair-seldonian"
 
 [build-system]
 requires = ["hatchling"]

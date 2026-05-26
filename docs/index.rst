@@ -16,7 +16,7 @@ never an unsafe model.
    * - **Documentation**
      - `parulgupta1004.github.io/fair-seldonian <https://parulgupta1004.github.io/fair-seldonian/>`_
    * - **Repository**
-     - `github.com/parul100495/fair-seldonian <https://github.com/parul100495/fair-seldonian>`_
+     - `github.com/parulgupta1004/fair-seldonian <https://github.com/parulgupta1004/fair-seldonian>`_
    * - **Paper**
      - Thomas et al., *Science* 366 (2019) —
        `doi:10.1126/science.aag3311 <https://www.science.org/doi/10.1126/science.aag3311>`_
