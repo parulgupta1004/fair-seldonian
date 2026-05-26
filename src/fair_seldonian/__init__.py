@@ -1,4 +1,4 @@
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 
 from .algorithms import QSA as QSA
 from .algorithms import safety_test as safety_test
