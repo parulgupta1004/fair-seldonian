@@ -52,6 +52,12 @@ dev = [
     "pyrefly>=1.0.0",
     "pytest>=8.0",
 ]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
+    "myst-parser>=3.0",
+    "matplotlib",
+]
 
 [tool.pyrefly]
 project_includes = ["src/"]

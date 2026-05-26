@@ -6,16 +6,16 @@ import torch
 
 
 def eval_estimate(element, Y, predicted_Y, T):
-    """
+    r"""
     Estimates the value of the base variable.
-    Assumes that Y and predicted_y contain 0,1 binary classification
+    Assumes that Y and predicted_y contain 0,1 binary classification.
     Suppose we are calculating for FP(A).
     Assume X to be an indicator function defined only in case type=A
     s.t. x_i = 1 if FP occurred for ith datapoint and x_i = 0 otherwise.
     Our data samples can be assumed to be independent and identically distributed.
     Our estimate of p, \hat{p} = 1/n * \sum(x_i).
     We can safely count this as binomial random variable.
-    E[\hat{p}] = 1/n * np = p
+    E[\hat{p}] = 1/n * np = p.
     As we do not know p, we approximate it to \hat{p}.
 
     :param element: expr_tree node

@@ -1,127 +1,92 @@
-# Fair Seldonian
+# Fair-Seldonian
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+*Fairness-constrained machine learning with high-confidence guarantees*
 
-A Python framework for enforcing fairness constraints in machine learning using [Seldonian algorithms](https://www.science.org/doi/10.1126/science.aag3311). This project implements the Quasi-Seldonian Algorithm (QSA) with several confidence bound optimization extensions, including Hoeffding and T-test based bounds, constant-aware delta allocation, and duplicate node detection.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![Build](https://img.shields.io/github/actions/workflow/status/parul100495/fair-seldonian/ci.yml?branch=master&label=build&logo=github)](https://github.com/parul100495/fair-seldonian/actions)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/parul100495/fair-seldonian/blob/master/LICENSE)
+[![Docs](https://img.shields.io/badge/docs-Sphinx-8CA1AF?logo=readthedocs&logoColor=white)](https://parulgupta1004.github.io/fair-seldonian/)
+[![Paper](https://img.shields.io/badge/paper-Science%20(2019)-orange)](https://www.science.org/doi/10.1126/science.aag3311)
 
-Initially developed under the guidance of Dr. Philip S. Thomas, University of Massachusetts Amherst.
+---
 
-## Overview
+A Python framework implementing the **Quasi-Seldonian Algorithm (QSA)** for training ML models that provably satisfy fairness constraints. Given a behavioral constraint and a confidence level *&delta;*, the algorithm either returns a model satisfying the constraint with probability &ge; 1 &minus; *&delta;*, or returns **No Solution Found** — never an unsafe model.
 
-Seldonian algorithms provide high-confidence guarantees that a learned policy will satisfy user-specified safety constraints. This framework applies that paradigm to fairness: given a behavioral constraint (e.g., bounded disparity in true positive rates across demographic groups), the algorithm either returns a model that satisfies the constraint with high probability or returns "No Solution Found."
+Built on the Seldonian algorithm framework by [Thomas et al. (2019)](https://www.science.org/doi/10.1126/science.aag3311), with extensions for tighter confidence bounds through constant-aware delta allocation, union bound optimization, and decomposed candidate-safety intervals.
 
-The pipeline consists of three stages:
+## Quick links
 
-1. **Candidate Selection** -- Optimize the primary objective (e.g., log loss) subject to a predicted upper bound on constraint violation, using the candidate dataset.
-2. **Safety Test** -- Evaluate the constraint upper bound on a held-out safety dataset. If the bound is non-positive, the candidate solution is accepted.
-3. **Evaluation** -- Measure the deployed model's true constraint violation and objective performance on test data.
-
-## Project Structure
-
-```
-src/fair_seldonian/
-├── constraints/                # Constraint parsing and confidence bound computation
-│   ├── bounds.py               # Interval arithmetic over confidence bounds (+, -, *, /, abs)
-│   ├── inequalities.py         # Hoeffding and T-test statistical concentration bounds
-│   ├── expression_tree.py      # Base expression tree: parse and evaluate constraint strings
-│   └── expression_tree_ext.py  # Extended tree with per-node delta allocation strategies
-├── models/                     # Model definitions and constraint evaluation
-│   └── logistic_regression.py  # Logistic regression model, objective (fHat), and ghat wrappers
-├── algorithms/                 # Core Seldonian algorithms
-│   └── qsa.py                  # Quasi-Seldonian Algorithm: candidate selection + safety test
-├── data/                       # Data generation and preprocessing
-│   └── synthetic.py            # Synthetic dataset generation with configurable group ratios
-└── experiments/                # Experiment orchestration and analysis
-    ├── runner.py               # Parallel experiment runner (Ray)
-    ├── results.py              # Results aggregation from experiment output files
-    └── plots.py                # Visualization of objective, solution rate, and failure rate
-```
+| | |
+|---|---|
+| **Documentation** | [parulgupta1004.github.io/fair-seldonian](https://parulgupta1004.github.io/fair-seldonian/) |
+| **Repository** | [github.com/parul100495/fair-seldonian](https://github.com/parul100495/fair-seldonian) |
+| **Paper** | Thomas et al., *Science* 366 (2019) — [doi:10.1126/science.aag3311](https://www.science.org/doi/10.1126/science.aag3311) |
 
 ## Installation
 
-Requires Python 3.10+. This project uses [uv](https://docs.astral.sh/uv/) for dependency management.
-
 ```bash
-# Install uv (if not already installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Clone the repository and install dependencies
 git clone https://github.com/parul100495/fair-seldonian.git
 cd fair-seldonian
-uv sync
-
-# Install with experiment dependencies (includes Ray)
-uv sync --extra experiments
+uv sync                          # core dependencies
+uv sync --extra experiments      # + Ray for parallel experiments
+uv sync --extra plots            # + matplotlib for visualization
 ```
+
+Or with pip: `pip install -e ".[experiments,plots]"`
 
 ## Usage
 
-### Running Experiments
+```python
+from fair_seldonian.algorithms import QSA
+from fair_seldonian.models import eval_ghat
+from fair_seldonian.data import get_data, data_split
 
-The experiment runner supports several Seldonian algorithm variants via the `seldonian_type` argument:
+data = get_data(N=10000, features=5, t_ratio=0.4,
+                tp0_ratio=0.4, tp1_ratio=0.6, random_seed=42)
+X_te, Y_te, T_te, X_tr, Y_tr, T_tr = data_split(
+    frac=0.5, All=data, random_state=1, mTest=0.2)
 
-| Mode    | Description                                                    |
-|---------|----------------------------------------------------------------|
-| `base`  | Standard Hoeffding bound, uniform delta splitting              |
-| `mod`   | Modified Hoeffding bound with tighter candidate-safety linking |
-| `bound` | Duplicate-aware delta reallocation across shared leaf nodes    |
-| `const` | Constant-aware delta allocation (skips splitting for numeric terms) |
-| `opt`   | All optimizations combined                                     |
+theta, theta1, passed = QSA(X_tr, Y_tr, T_tr, seldonian_type="opt")
+
+if passed:
+    print("Upper bound:", eval_ghat(theta, theta1, X_te, Y_te, T_te, "opt"))
+else:
+    print("No Solution Found")
+```
+
+## Algorithm variants
+
+| Mode | Description |
+|------|-------------|
+| `base` | Standard Hoeffding bound, uniform &delta;-splitting |
+| `mod` | Decomposed candidate/safety estimation error |
+| `const` | Constant-aware &delta; allocation |
+| `bound` | Union bound optimization for repeated variables |
+| `opt` | All optimizations combined |
 
 ```bash
-# Run experiments with the base algorithm
-uv run python -m fair_seldonian.experiments.runner base
-
-# Generate plots from experiment results
+uv run python -m fair_seldonian.experiments.runner opt
 uv run python -m fair_seldonian.experiments.plots
 ```
 
-### Using as a Library
+## Citation
 
-```python
-from fair_seldonian.algorithms import QSA
-from fair_seldonian.models import simple_logistic, eval_ghat
-from fair_seldonian.data import get_data, data_split
-
-# Generate synthetic data
-data = get_data(N=10000, features=5, t_ratio=0.4, tp0_ratio=0.4, tp1_ratio=0.6, random_seed=42)
-X_test, Y_test, T_test, X_train, Y_train, T_train = data_split(frac=0.5, All=data, random_state=1, mTest=0.2)
-
-# Run the Quasi-Seldonian Algorithm
-theta, theta1, passed_safety = QSA(X_train, Y_train, T_train, seldonian_type="opt", init_sol=None, init_sol1=None)
-
-if passed_safety:
-    print("Solution found, evaluating constraint on test data...")
-    print("Upper bound:", eval_ghat(theta, theta1, X_test, Y_test, T_test, "opt"))
+```bibtex
+@software{fair_seldonian,
+  author = {Parul Gupta},
+  title  = {Fair Seldonian Framework},
+  year   = {2026}
+}
 ```
 
-## Constraint Specification
+This work builds on:
 
-Constraints are specified as strings in [reverse Polish notation](https://en.wikipedia.org/wiki/Reverse_Polish_notation). The supported primitives are:
+> Thomas, P.S., da Silva, B.C., Barto, A.G., Giguere, S., Brun, Y., & Brunskill, E. (2019). "Preventing undesirable behavior of intelligent machines." *Science*, 366(6468), 999–1004.
 
-- `TP(g)`, `FP(g)`, `TN(g)`, `FN(g)` -- true/false positive/negative rates for group `g`
-- Operators: `+`, `-`, `*`, `/`, `^`, `abs`
+## License
 
-For example, the default constraint `TP(1) TP(0) - abs 0.25 TP(1) * -` encodes:
+[MIT](LICENSE)
 
-```
-|TP(1) - TP(0)| - 0.25 * TP(1) <= 0
-```
+---
 
-This bounds the absolute difference in true positive rates between groups, scaled by a fraction of the majority group's rate.
-
-## References
-
-> Thomas, P.S., et al. "Preventing undesirable behavior of intelligent machines." *Science* 366.6468 (2019): 999-1004.
-> https://www.science.org/doi/10.1126/science.aag3311
-
-## Documentation
-
-Full API documentation is available at: https://parulgupta1004.github.io/fair-seldonian/index.html
-
-## Contributing
-
-Contributions, extensions, and bug reports are welcome. Please open an issue or submit a pull request.
-
-**Author:** [Parul Gupta](https://www.linkedin.com/in/parulgupta04/)
+**Author:** [Parul Gupta](https://www.linkedin.com/in/parulgupta04/) · Initially developed under the guidance of Dr. Philip S. Thomas, University of Massachusetts Amherst.
