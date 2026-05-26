@@ -478,6 +478,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+]
 experiments = [
     { name = "ray" },
 ]
@@ -505,12 +508,13 @@ requires-dist = [
     { name = "matplotlib", marker = "extra == 'plots'" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "ray", marker = "extra == 'experiments'" },
     { name = "scikit-learn" },
     { name = "scipy" },
     { name = "torch" },
 ]
-provides-extras = ["experiments", "plots"]
+provides-extras = ["dev", "experiments", "plots"]
 
 [package.metadata.requires-dev]
 dev = [

@@ -121,7 +121,7 @@ def get_variance(element, estimate, predicted_Y, T, num_of_elements):
     type_attribute = element[3:-1]
     type_Y = predicted_Y[T.astype(str) == type_attribute]
     sum_term = (type_Y - estimate)**2
-    return math.sqrt(np.sum(sum_term) / (num_of_elements - 1))
+    return math.sqrt(float(sum_term.sum()) / (num_of_elements - 1))
 
 
 def eval_t_test(estimate, variance, num_of_elements, delta):
