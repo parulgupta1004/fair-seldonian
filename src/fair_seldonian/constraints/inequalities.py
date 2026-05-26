@@ -1,8 +1,8 @@
 import math
 from enum import Enum
-from scipy import stats
-import numpy as np
+
 import torch
+from scipy import stats
 
 
 def eval_estimate(element, Y, predicted_Y, T):
@@ -62,21 +62,40 @@ def eval_estimate(element, Y, predicted_Y, T):
     return None
 
 
-def eval_func_bound(element, Y, predicted_Y, T, delta, inequality,
-                    candidate_safety_ratio, predict_bound, modified_h):
+def eval_func_bound(
+    element,
+    Y,
+    predicted_Y,
+    T,
+    delta,
+    inequality,
+    candidate_safety_ratio,
+    predict_bound,
+    modified_h,
+):
     estimate = eval_estimate(element, Y, predicted_Y, T)
     num_of_elements = get_num_of_elements(element, Y)
     if inequality == Inequality.T_TEST:
         variance = get_variance(element, estimate, predicted_Y, T, num_of_elements)
         if predict_bound:
-            return predict_t_test(estimate, variance, candidate_safety_ratio * num_of_elements, delta)
+            return predict_t_test(
+                estimate, variance, candidate_safety_ratio * num_of_elements, delta
+            )
         return eval_t_test(estimate, variance, num_of_elements, delta)
     elif inequality == Inequality.HOEFFDING_INEQUALITY:
         if predict_bound:
             if modified_h:
-                return predict_hoeffding_modified(estimate, candidate_safety_ratio * num_of_elements, num_of_elements, delta)
-            return predict_hoeffding(estimate, candidate_safety_ratio * num_of_elements, delta)
+                return predict_hoeffding_modified(
+                    estimate,
+                    candidate_safety_ratio * num_of_elements,
+                    num_of_elements,
+                    delta,
+                )
+            return predict_hoeffding(
+                estimate, candidate_safety_ratio * num_of_elements, delta
+            )
         return eval_hoeffding(estimate, num_of_elements, delta)
+
 
 ####################
 # Inequality class #
@@ -86,6 +105,7 @@ class Inequality(Enum):
     The Enum defining the inequality type.
     Currently, it supports T-test and Hoeffding.
     """
+
     T_TEST = 1
     HOEFFDING_INEQUALITY = 2
 
@@ -98,20 +118,21 @@ def get_num_of_elements(element, Y):
         # filter Y=0
         return len(Y[Y == 0])
 
+
 def eval_hoeffding(estimate, num_of_elements, delta):
-    int_size = math.sqrt(math.log(1/delta) / (2 * num_of_elements))
+    int_size = math.sqrt(math.log(1 / delta) / (2 * num_of_elements))
     return estimate - int_size, estimate + int_size
 
 
 def predict_hoeffding(estimate, safety_size, delta):
-    constant_term = math.sqrt(math.log(1/delta) / (2 * safety_size))
+    constant_term = math.sqrt(math.log(1 / delta) / (2 * safety_size))
     int_size = 2 * constant_term
     return estimate - int_size, estimate + int_size
 
 
 def predict_hoeffding_modified(estimate, num_of_elements, safety_size, delta):
-    constant_term1 = math.sqrt(math.log(1/delta) / (2 * num_of_elements))
-    constant_term2 = math.sqrt(math.log(1/delta) / (2 * safety_size))
+    constant_term1 = math.sqrt(math.log(1 / delta) / (2 * num_of_elements))
+    constant_term2 = math.sqrt(math.log(1 / delta) / (2 * safety_size))
     int_size = constant_term1 + constant_term2
     return estimate - int_size, estimate + int_size
 
@@ -120,7 +141,7 @@ def get_variance(element, estimate, predicted_Y, T, num_of_elements):
     # element will be of the form FP(A) or FN(A) or TP(A) or TN(A)
     type_attribute = element[3:-1]
     type_Y = predicted_Y[T.astype(str) == type_attribute]
-    sum_term = (type_Y - estimate)**2
+    sum_term = (type_Y - estimate) ** 2
     return math.sqrt(float(sum_term.sum()) / (num_of_elements - 1))
 
 

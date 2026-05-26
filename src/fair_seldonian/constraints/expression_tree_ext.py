@@ -1,12 +1,14 @@
 from .bounds import eval_math_bound
+from .expression_tree import expr_tree as _BaseExprTree
+from .expression_tree import isFunc, isMod, isOperator
 from .inequalities import eval_estimate, eval_func_bound
-from .expression_tree import expr_tree as _BaseExprTree, isOperator, isMod, isFunc
 
 
 class expr_tree(_BaseExprTree):
     """
     Extended expression tree node with delta tracking
     """
+
     def add_delta(self, delta):
         self.delta = delta
 
@@ -18,7 +20,7 @@ def construct_expr_tree(rev_polish_notation, delta, check_bound, check_constant)
     :param rev_polish_notation: string with space as delimiter ' '
     :return: expr_tree node
     """
-    rev_polish_notation = rev_polish_notation.split(' ')
+    rev_polish_notation = rev_polish_notation.split(" ")
     stack = []
     for element in rev_polish_notation:
         if not isOperator(element) and not isMod(element):
@@ -61,7 +63,7 @@ def add_deltas_constant(t_node, delta):
                 if isConstant(t_node.right.value):
                     child_delta_left = delta
                 else:
-                    child_delta_left = delta/2
+                    child_delta_left = delta / 2
             else:
                 child_delta_left = delta
             add_deltas_constant(t_node.left, child_delta_left)
@@ -80,7 +82,7 @@ def add_deltas(t_node, delta):
     if t_node is not None:
         if t_node.left is not None and t_node.left.value is not None:
             if t_node.right is not None and t_node.right.value is not None:
-                child_delta_left = delta/2
+                child_delta_left = delta / 2
             else:
                 child_delta_left = delta
             add_deltas(t_node.left, child_delta_left)
@@ -141,15 +143,15 @@ def eval_expr_tree(t_node, Y=None, predicted_Y=None, T=None):
                 return abs(float(x))
             return None
         else:
-            if t_node.value == '+':
+            if t_node.value == "+":
                 return x + y
-            elif t_node.value == '-':
+            elif t_node.value == "-":
                 return x - y
-            elif t_node.value == '*':
+            elif t_node.value == "*":
                 return x * y
-            elif t_node.value == '^':
-                return x ** y
-            elif t_node.value == '/':
+            elif t_node.value == "^":
+                return x**y
+            elif t_node.value == "/":
                 return x / y
             elif isFunc(t_node.value):
                 return eval_estimate(t_node.value, Y, predicted_Y, T)
@@ -162,41 +164,80 @@ def eval_expr_tree(t_node, Y=None, predicted_Y=None, T=None):
 ##########################
 # Evaluate conf interval #
 ##########################
-def eval_expr_tree_conf_interval(t_node, Y, predicted_Y, T, inequality,
-                                 candidate_safety_ratio, predict_bound, modified_h):
+def eval_expr_tree_conf_interval(
+    t_node,
+    Y,
+    predicted_Y,
+    T,
+    inequality,
+    candidate_safety_ratio,
+    predict_bound,
+    modified_h,
+):
     if t_node is not None:
-        l_x, u_x = eval_expr_tree_conf_interval(t_node.left, Y, predicted_Y, T,
-                                                inequality, candidate_safety_ratio,
-                                                predict_bound, modified_h)
-        l_y, u_y = eval_expr_tree_conf_interval(t_node.right, Y, predicted_Y, T,
-                                                inequality, candidate_safety_ratio,
-                                                predict_bound, modified_h)
+        l_x, u_x = eval_expr_tree_conf_interval(
+            t_node.left,
+            Y,
+            predicted_Y,
+            T,
+            inequality,
+            candidate_safety_ratio,
+            predict_bound,
+            modified_h,
+        )
+        l_y, u_y = eval_expr_tree_conf_interval(
+            t_node.right,
+            Y,
+            predicted_Y,
+            T,
+            inequality,
+            candidate_safety_ratio,
+            predict_bound,
+            modified_h,
+        )
         if l_x is None and u_x is None:
             if isFunc(t_node.value):
-                return eval_func_bound(t_node.value, Y, predicted_Y, T,
-                                       t_node.delta, inequality, candidate_safety_ratio,
-                                       predict_bound, modified_h)
+                return eval_func_bound(
+                    t_node.value,
+                    Y,
+                    predicted_Y,
+                    T,
+                    t_node.delta,
+                    inequality,
+                    candidate_safety_ratio,
+                    predict_bound,
+                    modified_h,
+                )
             return float(t_node.value), float(t_node.value)
         elif l_y is None and u_y is None:
             if isMod(t_node.value):
-                return eval_math_bound(l_x, u_x, l_y, u_y, 'abs')
+                return eval_math_bound(l_x, u_x, l_y, u_y, "abs")
             return None, None
         else:
-            if t_node.value == '+':
-                return eval_math_bound(l_x, u_x, l_y, u_y, '+')
-            elif t_node.value == '-':
-                return eval_math_bound(l_x, u_x, l_y, u_y, '-')
-            elif t_node.value == '*':
-                return eval_math_bound(l_x, u_x, l_y, u_y, '*')
-            elif t_node.value == '^':
-                return eval_math_bound(l_x, u_x, l_y, u_y, '^')
-            elif t_node.value == '/':
-                return eval_math_bound(l_x, u_x, l_y, u_y, '/')
+            if t_node.value == "+":
+                return eval_math_bound(l_x, u_x, l_y, u_y, "+")
+            elif t_node.value == "-":
+                return eval_math_bound(l_x, u_x, l_y, u_y, "-")
+            elif t_node.value == "*":
+                return eval_math_bound(l_x, u_x, l_y, u_y, "*")
+            elif t_node.value == "^":
+                return eval_math_bound(l_x, u_x, l_y, u_y, "^")
+            elif t_node.value == "/":
+                return eval_math_bound(l_x, u_x, l_y, u_y, "/")
             elif isFunc(t_node.value):
-                return eval_func_bound(t_node.value, Y, predicted_Y, T, t_node.delta,
-                                       inequality, candidate_safety_ratio, predict_bound, modified_h)
+                return eval_func_bound(
+                    t_node.value,
+                    Y,
+                    predicted_Y,
+                    T,
+                    t_node.delta,
+                    inequality,
+                    candidate_safety_ratio,
+                    predict_bound,
+                    modified_h,
+                )
             elif isMod(t_node.value):
-                return eval_math_bound(l_x, u_x, l_y, u_y, 'abs')
+                return eval_math_bound(l_x, u_x, l_y, u_y, "abs")
             return None, None
     return None, None
 

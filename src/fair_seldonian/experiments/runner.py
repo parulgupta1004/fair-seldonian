@@ -1,17 +1,31 @@
-from ..data.synthetic import get_data, data_split
-from ..algorithms.qsa import QSA
-from ..models.logistic_regression import fHat, eval_ghat, simple_logistic
-import numpy as np
-
 import sys
 import time
 import timeit
 
-bin_path = 'exp/exp_{}/bin/'
+import numpy as np
+
+from ..algorithms.qsa import QSA
+from ..data.synthetic import data_split, get_data
+from ..models.logistic_regression import eval_ghat, fHat, simple_logistic
+
+bin_path = "exp/exp_{}/bin/"
 
 
-def store_result(theta, theta1, testX, testY, testT, passedSafetyTest,
-                 worker_id, nWorkers, m, trial, numTrials, seldonian_type, ls_dumb):
+def store_result(
+    theta,
+    theta1,
+    testX,
+    testY,
+    testT,
+    passedSafetyTest,
+    worker_id,
+    nWorkers,
+    m,
+    trial,
+    numTrials,
+    seldonian_type,
+    ls_dumb,
+):
     """
     Print and store the resultant information in a file.
 
@@ -20,7 +34,7 @@ def store_result(theta, theta1, testX, testY, testT, passedSafetyTest,
     :param testX: The features of the test dataset
     :param testY: The labels of the test dataset
     :param testT: The sensitive attribute column of the test dataset
-    :param passedSafetyTest: Bool value to indicate whether the safety test was passed or not
+    :param passedSafetyTest: Whether the safety test was passed
     :param worker_id: Id of the worker thread
     :param nWorkers: Total number of worker threads
     :param trial: Trial number of the experiment on the worker thread
@@ -30,12 +44,19 @@ def store_result(theta, theta1, testX, testY, testT, passedSafetyTest,
     """
     if ls_dumb:
         trueLogLoss = float(-fHat(theta, theta1, testX, testY))
-        upper_bound = float(eval_ghat(theta, theta1, testX, testY, testT, seldonian_type))
+        upper_bound = float(
+            eval_ghat(theta, theta1, testX, testY, testT, seldonian_type)
+        )
         failures_g1 = 0
         if upper_bound > 0:
             failures_g1 = 1
-        print(f"[(worker {worker_id}/{nWorkers}) {ls_dumb}   trial {trial + 1}/{numTrials}, m {m}]"
-              f"{ls_dumb} fHat over test data: {trueLogLoss:.10f}, upper bound: {upper_bound:.10f}")
+        w = f"(worker {worker_id}/{nWorkers})"
+        t = f"trial {trial + 1}/{numTrials}"
+        print(
+            f"[{w} {ls_dumb} {t}, m {m}]"
+            f" fHat: {trueLogLoss:.10f},"
+            f" upper bound: {upper_bound:.10f}"
+        )
         return 1, failures_g1, upper_bound, -trueLogLoss
     elif passedSafetyTest:
         trueLogLoss = float(-fHat(theta, theta1, testX, testY))
@@ -43,15 +64,19 @@ def store_result(theta, theta1, testX, testY, testT, passedSafetyTest,
         failures_g1 = 0
         if u > 0:
             failures_g1 = 1
+        w = f"(worker {worker_id}/{nWorkers})"
+        t = f"trial {trial + 1}/{numTrials}"
         print(
-            f"[(worker {worker_id}/{nWorkers}) {seldonian_type} trial {trial + 1}/{numTrials}, m {m}]"
-            f"Solution found: [{theta}, {theta1}]"
-            f"\tfHat over test data: {trueLogLoss:.10f}, upper bound: {u:.10f}")
+            f"[{w} {seldonian_type} {t}, m {m}]"
+            f" Solution: [{theta}, {theta1}]"
+            f" fHat: {trueLogLoss:.10f},"
+            f" upper bound: {u:.10f}"
+        )
         return 1, failures_g1, u, -trueLogLoss
     else:
-        print(
-            f"[(worker {worker_id}/{nWorkers}) SBase trial {trial + 1}/{numTrials}, m {m}]"
-            "No solution found")
+        w = f"(worker {worker_id}/{nWorkers})"
+        t = f"trial {trial + 1}/{numTrials}"
+        print(f"[{w} SBase {t}, m {m}] No solution found")
         return 0, 0, 0, None
 
 
@@ -80,7 +105,7 @@ def run_experiments(worker_id, nWorkers, ms, numM, numTrials, mTest, N, seldonia
     LS_fs = np.zeros((numTrials, numM))
 
     experiment_number = worker_id
-    outputFile = bin_path.format(seldonian_type) + 'results%d.npz' % experiment_number
+    outputFile = bin_path.format(seldonian_type) + "results%d.npz" % experiment_number
     print("Writing output to", outputFile)
 
     base_seed = (experiment_number * 99) + 1
@@ -88,46 +113,82 @@ def run_experiments(worker_id, nWorkers, ms, numM, numTrials, mTest, N, seldonia
     init_sol, init_sol1 = None, None
 
     for trial in range(numTrials):
-        for (mIndex, m) in enumerate(ms):
+        for mIndex, m in enumerate(ms):
             base_seed = (experiment_number * numTrials) + 1
             random_state = base_seed + trial
-            testX, testY, testT, trainX, trainY, trainT = data_split(m, All, random_state, mTest)
+            testX, testY, testT, trainX, trainY, trainT = data_split(
+                m, All, random_state, mTest
+            )
 
             theta, theta1 = simple_logistic(trainX, trainY)
-            LS_solutions_found[trial, mIndex], LS_failures_g1[trial, mIndex], LS_upper_bound[
-                trial, mIndex], LS_fs[trial, mIndex] = store_result(theta, theta1,
-                                                                    testX, testY, testT,
-                                                                    True, worker_id, nWorkers,
-                                                                    m, trial, numTrials, seldonian_type, "LS")
+            (
+                LS_solutions_found[trial, mIndex],
+                LS_failures_g1[trial, mIndex],
+                LS_upper_bound[trial, mIndex],
+                LS_fs[trial, mIndex],
+            ) = store_result(
+                theta,
+                theta1,
+                testX,
+                testY,
+                testT,
+                True,
+                worker_id,
+                nWorkers,
+                m,
+                trial,
+                numTrials,
+                seldonian_type,
+                "LS",
+            )
 
-            (theta, theta1, passedSafetyTest) = QSA(trainX, trainY, trainT, seldonian_type, init_sol, init_sol1)
-            s_solutions_found[trial, mIndex], s_failures_g1[trial, mIndex], s_upper_bound[
-                trial, mIndex], s_fs[trial, mIndex] = store_result(theta, theta1,
-                                                                   testX, testY, testT,
-                                                                   passedSafetyTest, worker_id, nWorkers,
-                                                                   m, trial, numTrials, seldonian_type,
-                                                                   None)
+            (theta, theta1, passedSafetyTest) = QSA(
+                trainX, trainY, trainT, seldonian_type, init_sol, init_sol1
+            )
+            (
+                s_solutions_found[trial, mIndex],
+                s_failures_g1[trial, mIndex],
+                s_upper_bound[trial, mIndex],
+                s_fs[trial, mIndex],
+            ) = store_result(
+                theta,
+                theta1,
+                testX,
+                testY,
+                testT,
+                passedSafetyTest,
+                worker_id,
+                nWorkers,
+                m,
+                trial,
+                numTrials,
+                seldonian_type,
+                None,
+            )
             if s_solutions_found[trial, mIndex] == 1:
                 init_sol, init_sol1 = theta, theta1
 
-    np.savez(outputFile, ms = ms,
-             s_solutions_found = s_solutions_found,
-             s_fs = s_fs,
-             s_failures_g1 = s_failures_g1,
-             s_upper_bound = s_upper_bound,
-
-             LS_solutions_found = LS_solutions_found,
-             LS_fs = LS_fs,
-             LS_failures_g1 = LS_failures_g1,
-             LS_upper_bound = LS_upper_bound)
+    np.savez(
+        outputFile,
+        ms=ms,
+        s_solutions_found=s_solutions_found,
+        s_fs=s_fs,
+        s_failures_g1=s_failures_g1,
+        s_upper_bound=s_upper_bound,
+        LS_solutions_found=LS_solutions_found,
+        LS_fs=LS_fs,
+        LS_failures_g1=LS_failures_g1,
+        LS_upper_bound=LS_upper_bound,
+    )
     print(f"Saved the file {outputFile}")
 
 
 if __name__ == "__main__":
     import logging
-    import ray
 
-    logging.basicConfig(filename='runner.log', level=logging.INFO)
+    import ray  # pyrefly: ignore
+
+    logging.basicConfig(filename="runner.log", level=logging.INFO)
     ray.init()
 
     run_experiments_remote = ray.remote(run_experiments)
@@ -146,9 +207,13 @@ if __name__ == "__main__":
 
     tic = timeit.default_timer()
     _ = ray.get(
-        [run_experiments_remote.remote(worker_id, nWorkers, ms, numM, numTrials, mTest,
-                                N, sys.argv[1]) for worker_id in
-          range(1, nWorkers + 1)])
+        [
+            run_experiments_remote.remote(
+                worker_id, nWorkers, ms, numM, numTrials, mTest, N, sys.argv[1]
+            )
+            for worker_id in range(1, nWorkers + 1)
+        ]
+    )
     toc = timeit.default_timer()
     time_parallel = toc - tic
     print(f"Time elapsed: {time_parallel}")

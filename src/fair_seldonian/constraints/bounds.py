@@ -11,20 +11,21 @@ def isMod(element):
         return True
     return False
 
+
 def eval_math_bound(l_x, u_x, l_y=None, u_y=None, operator=None):
-    if operator == '+':
-        return eval_add_bound ( l_x, u_x, l_y, u_y )
-    elif operator == '-':
-        return eval_subtract_bound ( l_x, u_x, l_y, u_y )
-    elif operator == '*':
-        return eval_multiply_bound ( l_x, u_x, l_y, u_y )
-    elif operator == '^':
+    if operator == "+":
+        return eval_add_bound(l_x, u_x, l_y, u_y)
+    elif operator == "-":
+        return eval_subtract_bound(l_x, u_x, l_y, u_y)
+    elif operator == "*":
+        return eval_multiply_bound(l_x, u_x, l_y, u_y)
+    elif operator == "^":
         # power is not supported as of now
         return l_x, u_x
-    elif operator == '/':
-        return eval_div_bound ( l_x, u_x, l_y, u_y )
-    elif isMod ( operator ):
-        return eval_abs_bound ( l_x, u_x )
+    elif operator == "/":
+        return eval_div_bound(l_x, u_x, l_y, u_y)
+    elif isMod(operator):
+        return eval_abs_bound(l_x, u_x)
     return None, None
 
 
@@ -42,7 +43,7 @@ def eval_abs_bound(l_x, u_x):
         elif l_x >= 0 and u_x >= 0:
             return l_x, u_x
         elif l_x <= 0 <= u_x:
-            return 0, max ( -l_x, u_x )
+            return 0, max(-l_x, u_x)
     return None, None
 
 
@@ -137,7 +138,9 @@ def eval_multiply_bound(l_x, u_x, l_y, u_y):
     :return: lower and upper bound of multiply operation
     """
     if l_x is not None and u_x is not None and l_y is not None and u_y is not None:
-        if (l_x == -math.inf and u_x == math.inf) or (l_y == -math.inf and u_y == math.inf):
+        if (l_x == -math.inf and u_x == math.inf) or (
+            l_y == -math.inf and u_y == math.inf
+        ):
             # one of x, y is unbounded
             return -math.inf, math.inf
         elif l_x >= 0 and l_y >= 0:
@@ -206,11 +209,16 @@ def eval_multiply_bound(l_x, u_x, l_y, u_y):
             return lower, upper
         elif l_x <= 0 <= u_x and l_y <= 0 <= u_y:
             # 0 in x and 0 in y
-            if l_x == -math.inf or l_y == -math.inf or u_x == math.inf or u_y == math.inf:
+            if (
+                l_x == -math.inf
+                or l_y == -math.inf
+                or u_x == math.inf
+                or u_y == math.inf
+            ):
                 # unbounded
                 return -math.inf, math.inf
             else:
-                return min ( l_x * u_y, u_x * l_y ), max ( u_x * u_y, l_x * l_y )
+                return min(l_x * u_y, u_x * l_y), max(u_x * u_y, l_x * l_y)
     return None, None
 
 
