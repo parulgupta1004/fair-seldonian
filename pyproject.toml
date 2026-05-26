@@ -108,7 +108,7 @@ showcontent = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=fair_seldonian --cov-report=term-missing"
+addopts = "--cov=fair_seldonian --cov-branch --cov-report=term-missing"
 
 [tool.coverage.run]
 source = ["fair_seldonian"]
