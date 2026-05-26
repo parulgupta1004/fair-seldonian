@@ -1,3 +1,5 @@
+__version__ = "0.1.0"
+
 from .constraints import (
     Inequality,
     construct_expr_tree_base,
