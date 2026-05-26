@@ -84,7 +84,7 @@ directory = "changes"
 filename = "CHANGELOG.md"
 start_string = "<!-- towncrier release notes start -->\n"
 underlines = ["", "", ""]
-title_format = "## {version} — {project_date}"
+title_format = "## {version}"
 
 [[tool.towncrier.type]]
 directory = "added"
