@@ -7,6 +7,12 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Set Python version
+          command: echo "3.12" > .python-version
+      - run:
+          name: Verify Python version
+          command: python --version | grep -q "Python 3.12"
+      - run:
           name: Install linters
           command: pip install ruff isort
       - run:
@@ -27,6 +33,12 @@ jobs:
       - image: cimg/python:<< parameters.python-version >>
     steps:
       - checkout
+      - run:
+          name: Set Python version
+          command: echo "<< parameters.python-version >>" > .python-version
+      - run:
+          name: Verify Python version
+          command: python --version | grep -q "Python << parameters.python-version >>"
       - restore_cache:
           keys:
             - pip-{{ checksum "pyproject.toml" }}-<< parameters.python-version >>
@@ -50,6 +62,12 @@ jobs:
       - image: cimg/python:3.12
     steps:
       - checkout
+      - run:
+          name: Set Python version
+          command: echo "3.12" > .python-version
+      - run:
+          name: Verify Python version
+          command: python --version | grep -q "Python 3.12"
       - run:
           name: Install towncrier
           command: pip install towncrier
