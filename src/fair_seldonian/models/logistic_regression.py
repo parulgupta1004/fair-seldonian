@@ -36,7 +36,7 @@ def predict(theta, theta1, X):
     )
 
 
-def fHat(theta, theta1, X, Y):
+def f_hat(theta, theta1, X, Y):
     """
     Main objective function: negative log loss.
 

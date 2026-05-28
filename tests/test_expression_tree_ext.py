@@ -4,7 +4,7 @@ from fair_seldonian.constraints.expression_tree_ext import (
     check_node_dup,
     construct_expr_tree,
     eval_expr_tree_conf_interval,
-    isConstant,
+    is_constant,
 )
 from fair_seldonian.constraints.inequalities import Inequality
 from fair_seldonian.data.synthetic import get_data
@@ -22,8 +22,8 @@ def _data(n=200):
 
 
 def test_is_constant():
-    assert isConstant("5") and isConstant("0.25") and isConstant("-3.14")
-    assert not isConstant("TP(1)") and not isConstant("+")
+    assert is_constant("5") and is_constant("0.25") and is_constant("-3.14")
+    assert not is_constant("TP(1)") and not is_constant("+")
 
 
 def test_uniform_delta():

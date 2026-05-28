@@ -7,7 +7,7 @@ import numpy as np
 from ..algorithms.qsa import QSA
 from ..config import DEFAULT_CONFIG
 from ..data.synthetic import data_split, get_data
-from ..models.logistic_regression import eval_ghat, fHat, simple_logistic
+from ..models.logistic_regression import eval_ghat, f_hat, simple_logistic
 
 bin_path = "exp/exp_{}/bin/"
 
@@ -45,7 +45,7 @@ def store_result(
     :return: (solution_found, failure_g, upper_bound, fhat) tuple values
     """
     if ls_dumb:
-        trueLogLoss = float(-fHat(theta, theta1, testX, testY))
+        trueLogLoss = float(-f_hat(theta, theta1, testX, testY))
         upper_bound = float(
             eval_ghat(theta, theta1, testX, testY, testT, seldonian_type, config)
         )
@@ -56,12 +56,12 @@ def store_result(
         t = f"trial {trial + 1}/{numTrials}"
         print(
             f"[{w} {ls_dumb} {t}, m {m}]"
-            f" fHat: {trueLogLoss:.10f},"
+            f" f_hat: {trueLogLoss:.10f},"
             f" upper bound: {upper_bound:.10f}"
         )
         return 1, failures_g1, upper_bound, -trueLogLoss
     elif passedSafetyTest:
-        trueLogLoss = float(-fHat(theta, theta1, testX, testY))
+        trueLogLoss = float(-f_hat(theta, theta1, testX, testY))
         u = float(eval_ghat(theta, theta1, testX, testY, testT, seldonian_type, config))
         failures_g1 = 0
         if u > 0:
@@ -71,7 +71,7 @@ def store_result(
         print(
             f"[{w} {seldonian_type} {t}, m {m}]"
             f" Solution: [{theta}, {theta1}]"
-            f" fHat: {trueLogLoss:.10f},"
+            f" f_hat: {trueLogLoss:.10f},"
             f" upper bound: {u:.10f}"
         )
         return 1, failures_g1, u, -trueLogLoss

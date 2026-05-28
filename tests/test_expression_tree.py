@@ -4,9 +4,9 @@ from fair_seldonian.constraints.expression_tree import (
     construct_expr_tree_base,
     eval_expr_tree_base,
     eval_expr_tree_conf_interval_base,
-    isFunc,
-    isMod,
-    isOperator,
+    is_func,
+    is_mod,
+    is_operator,
 )
 from fair_seldonian.constraints.inequalities import Inequality
 from fair_seldonian.data.synthetic import get_data
@@ -25,17 +25,17 @@ def _data(n=200):
 
 def test_operators():
     for op in ["+", "-", "*", "/", "^"]:
-        assert isOperator(op)
-    assert not isOperator("abs")
+        assert is_operator(op)
+    assert not is_operator("abs")
 
 
 def test_mod():
-    assert isMod("abs") and not isMod("+")
+    assert is_mod("abs") and not is_mod("+")
 
 
 def test_func():
-    assert isFunc("TP(1)") and isFunc("FP(0)")
-    assert not isFunc("abs") and not isFunc("0.5")
+    assert is_func("TP(1)") and is_func("FP(0)")
+    assert not is_func("abs") and not is_func("0.5")
 
 
 def test_simple_tree():

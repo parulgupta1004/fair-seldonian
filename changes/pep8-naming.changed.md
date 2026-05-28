@@ -1,0 +1,1 @@
+Renamed public API to PEP 8: `fHat`→`f_hat`, `expr_tree`→`ExprTree`, `isOperator`→`is_operator`, `isFunc`→`is_func`, `isMod`→`is_mod`, `isConstant`→`is_constant`.

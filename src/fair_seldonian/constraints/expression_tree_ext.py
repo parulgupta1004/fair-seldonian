@@ -1,10 +1,10 @@
 from .bounds import eval_math_bound
-from .expression_tree import expr_tree as _BaseExprTree
-from .expression_tree import isFunc, isMod, isOperator
+from .expression_tree import ExprTree as _BaseExprTree
+from .expression_tree import is_func, is_mod, is_operator
 from .inequalities import eval_estimate, eval_func_bound
 
 
-class expr_tree(_BaseExprTree):
+class ExprTree(_BaseExprTree):
     """
     Extended expression tree node with delta tracking
     """
@@ -18,21 +18,21 @@ def construct_expr_tree(rev_polish_notation, delta, check_bound, check_constant)
     Returns root of constructed tree for given postfix expression
 
     :param rev_polish_notation: string with space as delimiter ' '
-    :return: expr_tree node
+    :return: ExprTree node
     """
     rev_polish_notation = rev_polish_notation.split(" ")
     stack = []
     for element in rev_polish_notation:
-        if not isOperator(element) and not isMod(element):
-            t = expr_tree(element)
+        if not is_operator(element) and not is_mod(element):
+            t = ExprTree(element)
             stack.append(t)
         else:
-            if isMod(element):
-                t = expr_tree(element)
+            if is_mod(element):
+                t = ExprTree(element)
                 t1 = None
                 t2 = stack.pop()
             else:
-                t = expr_tree(element)
+                t = ExprTree(element)
                 t1 = stack.pop()
                 t2 = stack.pop()
             t.right = t1
@@ -57,10 +57,10 @@ def configure_delta(t_node, delta, check_bound, check_constant):
 def add_deltas_constant(t_node, delta):
     if t_node is not None:
         if t_node.left is not None and t_node.left.value is not None:
-            if isConstant(t_node.left.value):
+            if is_constant(t_node.left.value):
                 child_delta_left = delta
             elif t_node.right is not None and t_node.right.value is not None:
-                if isConstant(t_node.right.value):
+                if is_constant(t_node.right.value):
                     child_delta_left = delta
                 else:
                     child_delta_left = delta / 2
@@ -69,9 +69,9 @@ def add_deltas_constant(t_node, delta):
             add_deltas_constant(t_node.left, child_delta_left)
         t_node.add_delta(delta)
         if t_node.right is not None and t_node.right.value is not None:
-            if isConstant(t_node.right.value):
+            if is_constant(t_node.right.value):
                 child_delta_right = delta
-            elif isConstant(t_node.left.value):
+            elif is_constant(t_node.left.value):
                 child_delta_right = delta
             else:
                 child_delta_right = delta / 2
@@ -95,7 +95,7 @@ def add_deltas(t_node, delta):
 def check_node_dup(t_node, hash_map):
     if t_node is not None:
         check_node_dup(t_node.left, hash_map)
-        if isFunc(t_node.value):
+        if is_func(t_node.value):
             if t_node.value in hash_map:
                 list_of_delta = hash_map[t_node.value]
             else:
@@ -105,7 +105,7 @@ def check_node_dup(t_node, hash_map):
         check_node_dup(t_node.right, hash_map)
 
 
-def isConstant(t_node_value):
+def is_constant(t_node_value):
     try:
         float(t_node_value)
         return True
@@ -135,11 +135,11 @@ def eval_expr_tree(t_node, Y=None, predicted_Y=None, T=None):
         x = eval_expr_tree(t_node.left, Y, predicted_Y, T)
         y = eval_expr_tree(t_node.right, Y, predicted_Y, T)
         if x is None:
-            if isFunc(t_node.value):
+            if is_func(t_node.value):
                 return eval_estimate(t_node.value, Y, predicted_Y, T)
             return float(t_node.value)
         elif y is None:
-            if isMod(t_node.value):
+            if is_mod(t_node.value):
                 return abs(float(x))
             return None
         else:
@@ -153,9 +153,9 @@ def eval_expr_tree(t_node, Y=None, predicted_Y=None, T=None):
                 return x**y
             elif t_node.value == "/":
                 return x / y
-            elif isFunc(t_node.value):
+            elif is_func(t_node.value):
                 return eval_estimate(t_node.value, Y, predicted_Y, T)
-            elif isMod(t_node.value):
+            elif is_mod(t_node.value):
                 return abs(float(x))
             return None
     return None
@@ -196,7 +196,7 @@ def eval_expr_tree_conf_interval(
             modified_h,
         )
         if l_x is None and u_x is None:
-            if isFunc(t_node.value):
+            if is_func(t_node.value):
                 return eval_func_bound(
                     t_node.value,
                     Y,
@@ -210,7 +210,7 @@ def eval_expr_tree_conf_interval(
                 )
             return float(t_node.value), float(t_node.value)
         elif l_y is None and u_y is None:
-            if isMod(t_node.value):
+            if is_mod(t_node.value):
                 return eval_math_bound(l_x, u_x, l_y, u_y, "abs")
             return None, None
         else:
@@ -224,7 +224,7 @@ def eval_expr_tree_conf_interval(
                 return eval_math_bound(l_x, u_x, l_y, u_y, "^")
             elif t_node.value == "/":
                 return eval_math_bound(l_x, u_x, l_y, u_y, "/")
-            elif isFunc(t_node.value):
+            elif is_func(t_node.value):
                 return eval_func_bound(
                     t_node.value,
                     Y,
@@ -236,7 +236,7 @@ def eval_expr_tree_conf_interval(
                     predict_bound,
                     modified_h,
                 )
-            elif isMod(t_node.value):
+            elif is_mod(t_node.value):
                 return eval_math_bound(l_x, u_x, l_y, u_y, "abs")
             return None, None
     return None, None

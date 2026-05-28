@@ -17,7 +17,7 @@ from .constraints import inorder as inorder
 from .data import data_split as data_split
 from .data import get_data as get_data
 from .models import eval_ghat as eval_ghat
-from .models import fHat as fHat
+from .models import f_hat as f_hat
 from .models import ghat as ghat
 from .models import predict as predict
 from .models import simple_logistic as simple_logistic

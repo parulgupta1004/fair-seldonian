@@ -6,7 +6,7 @@ from fair_seldonian.constraints.inequalities import Inequality
 from fair_seldonian.data.synthetic import data_split, get_data
 from fair_seldonian.models.logistic_regression import (
     eval_ghat,
-    fHat,
+    f_hat,
     ghat,
     predict,
     simple_logistic,
@@ -43,7 +43,7 @@ def test_predict_zero_weights():
 
 
 def test_fhat():
-    loss = fHat(
+    loss = f_hat(
         torch.randn(5, dtype=torch.float64),
         torch.tensor([0.0], dtype=torch.float64),
         np.random.randn(30, 5),

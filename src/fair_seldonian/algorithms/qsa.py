@@ -4,7 +4,7 @@ from scipy.optimize import minimize
 from sklearn.model_selection import train_test_split
 
 from ..config import DEFAULT_CONFIG
-from ..models.logistic_regression import eval_ghat, fHat, ghat, simple_logistic
+from ..models.logistic_regression import eval_ghat, f_hat, ghat, simple_logistic
 
 
 def QSA(X, Y, T, seldonian_type, init_sol, init_sol1, config=DEFAULT_CONFIG):
@@ -150,7 +150,7 @@ def cand_obj(theta, cand_data_X, cand_data_Y, cand_data_T, seldonian_type, confi
     theta0 = torch.tensor(theta_numpy)
     theta1 = torch.tensor(np.array([theta1_numpy]))
 
-    result = fHat(theta0, theta1, cand_data_X, cand_data_Y)
+    result = f_hat(theta0, theta1, cand_data_X, cand_data_Y)
     upper_bound = ghat(
         theta0,
         theta1,
@@ -171,7 +171,7 @@ def _get_cand_solution2(
     cand_data_X, cand_data_Y, cand_data_T, seldonian_type, config=DEFAULT_CONFIG
 ):
     init_sol, init_sol1 = simple_logistic(cand_data_X, cand_data_Y)
-    init_fhat = fHat(init_sol, init_sol1, cand_data_X, cand_data_Y)
+    init_fhat = f_hat(init_sol, init_sol1, cand_data_X, cand_data_Y)
     init_ghat = eval_ghat(
         init_sol,
         init_sol1,
@@ -245,7 +245,7 @@ def _cand_obj2(
     theta0 = torch.tensor(theta_numpy)
     theta1 = torch.tensor(np.array([theta1_numpy]))
 
-    result = fHat(theta0, theta1, cand_data_X, cand_data_Y)
+    result = f_hat(theta0, theta1, cand_data_X, cand_data_Y)
     upper_bound = eval_ghat(
         theta0, theta1, cand_data_X, cand_data_Y, cand_data_T, seldonian_type, config
     )

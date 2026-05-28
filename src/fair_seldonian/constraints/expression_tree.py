@@ -5,7 +5,7 @@ from .inequalities import eval_estimate, eval_func_bound
 ####################
 # Construct Parser #
 ####################
-class expr_tree:
+class ExprTree:
     """
     An expression tree node of the constraint tree
     """
@@ -16,7 +16,7 @@ class expr_tree:
         self.right = None
 
 
-def isOperator(element):
+def is_operator(element):
     if (
         element == "+"
         or element == "-"
@@ -28,13 +28,13 @@ def isOperator(element):
     return False
 
 
-def isMod(element):
+def is_mod(element):
     if element == "abs":
         return True
     return False
 
 
-def isFunc(element):
+def is_func(element):
     if (
         element.startswith("FP")
         or element.startswith("FN")
@@ -50,21 +50,21 @@ def construct_expr_tree_base(rev_polish_notation):
     Returns root of constructed tree for given postfix expression
 
     :param rev_polish_notation: string with space as delimiter ' '
-    :return: expr_tree node
+    :return: ExprTree node
     """
     rev_polish_notation = rev_polish_notation.split(" ")
     stack = []
     for element in rev_polish_notation:
-        if not isOperator(element) and not isMod(element):
-            t = expr_tree(element)
+        if not is_operator(element) and not is_mod(element):
+            t = ExprTree(element)
             stack.append(t)
         else:
-            if isMod(element):
-                t = expr_tree(element)
+            if is_mod(element):
+                t = ExprTree(element)
                 t1 = None
                 t2 = stack.pop()
             else:
-                t = expr_tree(element)
+                t = ExprTree(element)
                 t1 = stack.pop()
                 t2 = stack.pop()
             t.right = t1
@@ -81,7 +81,7 @@ def eval_expr_tree_base(t_node, Y, predicted_Y, T):
     """
     A utility function to evaluate estimate of the expression tree
 
-    :param t_node: expr_tree node
+    :param t_node: ExprTree node
     :param Y: pandas::Series
     :param predicted_Y: tensor
     :param T: pandas::Series
@@ -91,11 +91,11 @@ def eval_expr_tree_base(t_node, Y, predicted_Y, T):
         x = eval_expr_tree_base(t_node.left, Y, predicted_Y, T)
         y = eval_expr_tree_base(t_node.right, Y, predicted_Y, T)
         if x is None:
-            if isFunc(t_node.value):
+            if is_func(t_node.value):
                 return eval_estimate(t_node.value, Y, predicted_Y, T)
             return float(t_node.value)
         elif y is None:
-            if isMod(t_node.value):
+            if is_mod(t_node.value):
                 return abs(float(x))
             return None
         else:
@@ -109,9 +109,9 @@ def eval_expr_tree_base(t_node, Y, predicted_Y, T):
                 return x**y
             elif t_node.value == "/":
                 return x / y
-            elif isFunc(t_node.value):
+            elif is_func(t_node.value):
                 return eval_estimate(t_node.value, Y, predicted_Y, T)
-            elif isMod(t_node.value):
+            elif is_mod(t_node.value):
                 return abs(float(x))
             return None
     return None
@@ -134,7 +134,7 @@ def eval_expr_tree_conf_interval_base(
     """
     To evaluate confidence interval of the expression tree
 
-    :param t_node: expr_tree node
+    :param t_node: ExprTree node
     :param Y: pandas::Series The true labels of the dataset
     :param predicted_Y: tensor The predicted labels of the dataset
     :param T: pandas::Series The sensitive attributes of the dataset
@@ -174,7 +174,7 @@ def eval_expr_tree_conf_interval_base(
             modified_h,
         )
         if l_x is None and u_x is None:
-            if isFunc(t_node.value):
+            if is_func(t_node.value):
                 return eval_func_bound(
                     t_node.value,
                     Y,
@@ -188,7 +188,7 @@ def eval_expr_tree_conf_interval_base(
                 )
             return float(t_node.value), float(t_node.value)
         elif l_y is None and u_y is None:
-            if isMod(t_node.value):
+            if is_mod(t_node.value):
                 return eval_math_bound(l_x, u_x, l_y, u_y, "abs")
             return None, None
         else:
@@ -202,7 +202,7 @@ def eval_expr_tree_conf_interval_base(
                 return eval_math_bound(l_x, u_x, l_y, u_y, "^")
             elif t_node.value == "/":
                 return eval_math_bound(l_x, u_x, l_y, u_y, "/")
-            elif isFunc(t_node.value):
+            elif is_func(t_node.value):
                 return eval_func_bound(
                     t_node.value,
                     Y,
@@ -214,7 +214,7 @@ def eval_expr_tree_conf_interval_base(
                     predict_bound,
                     modified_h,
                 )
-            elif isMod(t_node.value):
+            elif is_mod(t_node.value):
                 return eval_math_bound(l_x, u_x, l_y, u_y, "abs")
             return None, None
     return None, None
@@ -227,7 +227,7 @@ def inorder(t_node):
     """
     A utility function to print inorder traversal
 
-    :param t_node: expr_tree node
+    :param t_node: ExprTree node
     :return: None
     """
     if t_node is not None:
