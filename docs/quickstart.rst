@@ -93,6 +93,7 @@ The framework can also be used programmatically:
 .. code-block:: python
 
    from fair_seldonian.algorithms import QSA
+   from fair_seldonian.config import SeldonianConfig
    from fair_seldonian.models import simple_logistic, eval_ghat
    from fair_seldonian.data import get_data, data_split
 
@@ -122,8 +123,9 @@ The framework can also be used programmatically:
 Configuration
 -------------
 
-The framework is configured through module-level variables in
-:mod:`fair_seldonian.models.logistic_regression`:
+The algorithm is configured via the :class:`~fair_seldonian.config.SeldonianConfig`
+dataclass. All parameters have sensible defaults, so no configuration is required
+for basic usage.
 
 .. list-table::
    :header-rows: 1
@@ -136,11 +138,11 @@ The framework is configured through module-level variables in
      - 0.05
      - Significance level :math:`\delta`; the constraint holds with
        probability :math:`\geq 1 - \delta`
-   * - ``ineq``
+   * - ``inequality``
      - Hoeffding
      - Concentration inequality used for bound computation
        (:class:`~fair_seldonian.constraints.inequalities.Inequality`)
-   * - ``rev_polish_notation``
+   * - ``constraint``
      - See below
      - Fairness constraint in reverse Polish notation
    * - ``candidate_ratio``
@@ -149,6 +151,27 @@ The framework is configured through module-level variables in
 
 The default constraint string ``TP(1) TP(0) - abs 0.25 TP(1) * -`` encodes
 a relaxed equalized opportunity condition (see :doc:`intro` for details).
+
+**Example: custom configuration**
+
+.. code-block:: python
+
+   from fair_seldonian.algorithms import QSA
+   from fair_seldonian.config import SeldonianConfig
+   from fair_seldonian.constraints.inequalities import Inequality
+
+   config = SeldonianConfig(
+       delta=0.01,
+       inequality=Inequality.T_TEST,
+       candidate_ratio=0.5,
+   )
+
+   theta, theta1, passed = QSA(
+       X_train, Y_train, T_train,
+       seldonian_type="opt",
+       init_sol=None, init_sol1=None,
+       config=config,
+   )
 
 Extending the Framework
 -----------------------
@@ -163,6 +186,7 @@ To use a custom model, replace the following functions in
 - :func:`~fair_seldonian.models.logistic_regression.fHat` — computes the primary
   objective function.
 
-The constraint specification (``rev_polish_notation``) can be modified to encode
-any fairness condition expressible in terms of ``TP``, ``FP``, ``TN``, ``FN``
-rates across groups.
+The constraint expression (``constraint`` field on
+:class:`~fair_seldonian.config.SeldonianConfig`) can be set to any fairness
+condition expressible in terms of ``TP``, ``FP``, ``TN``, ``FN`` rates across
+groups.

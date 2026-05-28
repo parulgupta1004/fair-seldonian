@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 
+from fair_seldonian.config import SeldonianConfig
+from fair_seldonian.constraints.inequalities import Inequality
 from fair_seldonian.data.synthetic import data_split, get_data
 from fair_seldonian.models.logistic_regression import (
     eval_ghat,
@@ -68,3 +70,30 @@ def test_ghat_all_modes():
     theta, theta1 = simple_logistic(Xt, Yt)
     for mode in ["base", "mod", "bound", "const", "opt"]:
         assert ghat(theta, theta1, Xt, Yt, Tt, 0.4, mode) is not None
+
+
+def test_eval_ghat_custom_config():
+    config = SeldonianConfig(delta=0.01)
+    Xt, Yt, Tt, Xe, Ye, Te = _split()
+    theta, theta1 = simple_logistic(Xt, Yt)
+    for mode in ["base", "mod", "bound", "const", "opt"]:
+        assert eval_ghat(theta, theta1, Xe, Ye, Te, mode, config) is not None
+
+
+def test_ghat_ttest_config():
+    config = SeldonianConfig(inequality=Inequality.T_TEST)
+    Xt, Yt, Tt, _, _, _ = _split()
+    theta, theta1 = simple_logistic(Xt, Yt)
+    assert ghat(theta, theta1, Xt, Yt, Tt, 0.4, "base", config) is not None
+
+
+def test_smaller_delta_widens_bound():
+    Xt, Yt, Tt, _, _, _ = _split()
+    theta, theta1 = simple_logistic(Xt, Yt)
+    loose = float(
+        eval_ghat(theta, theta1, Xt, Yt, Tt, "base", SeldonianConfig(delta=0.10))
+    )
+    tight = float(
+        eval_ghat(theta, theta1, Xt, Yt, Tt, "base", SeldonianConfig(delta=0.01))
+    )
+    assert tight >= loose

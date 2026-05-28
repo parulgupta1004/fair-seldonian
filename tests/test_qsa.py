@@ -1,4 +1,6 @@
 from fair_seldonian.algorithms.qsa import QSA, safety_test
+from fair_seldonian.config import SeldonianConfig
+from fair_seldonian.constraints.inequalities import Inequality
 from fair_seldonian.data.synthetic import data_split, get_data
 from fair_seldonian.models.logistic_regression import simple_logistic
 
@@ -27,3 +29,24 @@ def test_safety_test_all_modes():
     theta, theta1 = simple_logistic(Xt, Yt)
     for mode in ["base", "mod", "bound", "const", "opt"]:
         assert isinstance(safety_test(theta, theta1, Xt, Yt, Tt, mode), bool)
+
+
+def test_qsa_custom_config():
+    config = SeldonianConfig(delta=0.01, candidate_ratio=0.5)
+    Xt, Yt, Tt, _, _, _ = _split()
+    theta, theta1, passed = QSA(Xt, Yt, Tt, "base", None, None, config)
+    assert theta is not None and theta1 is not None and isinstance(passed, bool)
+
+
+def test_qsa_ttest_config():
+    config = SeldonianConfig(inequality=Inequality.T_TEST)
+    Xt, Yt, Tt, _, _, _ = _split()
+    theta, theta1, passed = QSA(Xt, Yt, Tt, "base", None, None, config)
+    assert isinstance(passed, bool)
+
+
+def test_safety_test_custom_config():
+    config = SeldonianConfig(delta=0.10)
+    Xt, Yt, Tt, _, _, _ = _split(n=500)
+    theta, theta1 = simple_logistic(Xt, Yt)
+    assert isinstance(safety_test(theta, theta1, Xt, Yt, Tt, "base", config), bool)

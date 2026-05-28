@@ -2,6 +2,8 @@ __version__ = "1.0.0"
 
 from .algorithms import QSA as QSA
 from .algorithms import safety_test as safety_test
+from .config import DEFAULT_CONFIG as DEFAULT_CONFIG
+from .config import SeldonianConfig as SeldonianConfig
 from .constraints import Inequality as Inequality
 from .constraints import construct_expr_tree as construct_expr_tree
 from .constraints import construct_expr_tree_base as construct_expr_tree_base

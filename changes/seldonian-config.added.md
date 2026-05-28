@@ -1,0 +1,1 @@
+`SeldonianConfig` dataclass replacing hardcoded module-level globals.

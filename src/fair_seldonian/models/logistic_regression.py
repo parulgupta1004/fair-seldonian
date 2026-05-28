@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from sklearn.linear_model import LogisticRegression
 
+from ..config import DEFAULT_CONFIG
 from ..constraints.expression_tree import (
     construct_expr_tree_base,
     eval_expr_tree_conf_interval_base,
@@ -10,12 +11,6 @@ from ..constraints.expression_tree_ext import (
     construct_expr_tree,
     eval_expr_tree_conf_interval,
 )
-from ..constraints.inequalities import Inequality
-
-delta = 0.05
-ineq = Inequality.HOEFFDING_INEQUALITY
-rev_polish_notation = "TP(1) TP(0) - abs 0.25 TP(1) * -"
-candidate_ratio = 0.40
 
 
 def predict(theta, theta1, X):
@@ -78,45 +73,57 @@ def simple_logistic(X, Y):
         raise
 
 
-def eval_ghat(theta, theta1, X, Y, T, seldonian_type):
+def eval_ghat(theta, theta1, X, Y, T, seldonian_type, config=DEFAULT_CONFIG):
     if seldonian_type == "base":
-        return eval_ghat_base(theta, theta1, X, Y, T, False)
+        return eval_ghat_base(theta, theta1, X, Y, T, False, config)
     elif seldonian_type == "mod":
-        return eval_ghat_base(theta, theta1, X, Y, T, True)
+        return eval_ghat_base(theta, theta1, X, Y, T, True, config)
     elif seldonian_type == "bound":
-        return eval_ghat_extend(theta, theta1, X, Y, T, True, False, False)
+        return eval_ghat_extend(theta, theta1, X, Y, T, True, False, False, config)
     elif seldonian_type == "const":
-        return eval_ghat_extend(theta, theta1, X, Y, T, False, True, False)
+        return eval_ghat_extend(theta, theta1, X, Y, T, False, True, False, config)
     elif seldonian_type == "opt":
-        return eval_ghat_extend(theta, theta1, X, Y, T, True, True, True)
+        return eval_ghat_extend(theta, theta1, X, Y, T, True, True, True, config)
     else:
         raise ValueError(f"Unknown seldonian_type: {seldonian_type}")
 
 
-def ghat(theta, theta1, X, Y, T, candidate_ratio, seldonian_type):
+def ghat(
+    theta, theta1, X, Y, T, candidate_ratio, seldonian_type, config=DEFAULT_CONFIG
+):
     if seldonian_type == "base":
-        return ghat_base(theta, theta1, X, Y, T, True, candidate_ratio, False)
+        return ghat_base(theta, theta1, X, Y, T, True, candidate_ratio, False, config)
     elif seldonian_type == "mod":
-        return ghat_base(theta, theta1, X, Y, T, True, candidate_ratio, True)
+        return ghat_base(theta, theta1, X, Y, T, True, candidate_ratio, True, config)
     elif seldonian_type == "bound":
         return ghat_extend(
-            theta, theta1, X, Y, T, True, candidate_ratio, True, False, False
+            theta, theta1, X, Y, T, True, candidate_ratio, True, False, False, config
         )
     elif seldonian_type == "const":
         return ghat_extend(
-            theta, theta1, X, Y, T, True, candidate_ratio, False, True, False
+            theta, theta1, X, Y, T, True, candidate_ratio, False, True, False, config
         )
     elif seldonian_type == "opt":
         return ghat_extend(
-            theta, theta1, X, Y, T, True, candidate_ratio, True, True, True
+            theta, theta1, X, Y, T, True, candidate_ratio, True, True, True, config
         )
     else:
         raise ValueError(f"Unknown seldonian_type: {seldonian_type}")
 
 
-def ghat_base(theta, theta1, X, Y, T, predict_bound, candidate_ratio, modified_h):
+def ghat_base(
+    theta,
+    theta1,
+    X,
+    Y,
+    T,
+    predict_bound,
+    candidate_ratio,
+    modified_h,
+    config=DEFAULT_CONFIG,
+):
     pred = predict(theta, theta1, X)
-    r = construct_expr_tree_base(rev_polish_notation)
+    r = construct_expr_tree_base(config.constraint)
     cand_safe_ratio = None
     if candidate_ratio:
         cand_safe_ratio = (1 - candidate_ratio) / candidate_ratio
@@ -125,8 +132,8 @@ def ghat_base(theta, theta1, X, Y, T, predict_bound, candidate_ratio, modified_h
         Y=Y,
         predicted_Y=pred,
         T=T,
-        delta=delta,
-        inequality=ineq,
+        delta=config.delta,
+        inequality=config.inequality,
         candidate_safety_ratio=cand_safe_ratio,
         predict_bound=predict_bound,
         modified_h=modified_h,
@@ -134,8 +141,8 @@ def ghat_base(theta, theta1, X, Y, T, predict_bound, candidate_ratio, modified_h
     return u
 
 
-def eval_ghat_base(theta, theta1, X, Y, T, modified_h):
-    return ghat_base(theta, theta1, X, Y, T, False, None, modified_h)
+def eval_ghat_base(theta, theta1, X, Y, T, modified_h, config=DEFAULT_CONFIG):
+    return ghat_base(theta, theta1, X, Y, T, False, None, modified_h, config)
 
 
 def ghat_extend(
@@ -149,10 +156,14 @@ def ghat_extend(
     check_bound,
     check_const,
     modified_h,
+    config=DEFAULT_CONFIG,
 ):
     pred = predict(theta, theta1, X)
     r = construct_expr_tree(
-        rev_polish_notation, delta, check_bound=check_bound, check_constant=check_const
+        config.constraint,
+        config.delta,
+        check_bound=check_bound,
+        check_constant=check_const,
     )
     cand_safe_ratio = None
     if candidate_ratio:
@@ -162,7 +173,7 @@ def ghat_extend(
         Y=Y,
         predicted_Y=pred,
         T=T,
-        inequality=ineq,
+        inequality=config.inequality,
         candidate_safety_ratio=cand_safe_ratio,
         predict_bound=predict_bound,
         modified_h=modified_h,
@@ -170,7 +181,19 @@ def ghat_extend(
     return u
 
 
-def eval_ghat_extend(theta, theta1, X, Y, T, check_bound, check_const, modified_h):
+def eval_ghat_extend(
+    theta, theta1, X, Y, T, check_bound, check_const, modified_h, config=DEFAULT_CONFIG
+):
     return ghat_extend(
-        theta, theta1, X, Y, T, False, None, check_bound, check_const, modified_h
+        theta,
+        theta1,
+        X,
+        Y,
+        T,
+        False,
+        None,
+        check_bound,
+        check_const,
+        modified_h,
+        config,
     )

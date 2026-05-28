@@ -3,16 +3,11 @@ import torch
 from scipy.optimize import minimize
 from sklearn.model_selection import train_test_split
 
-from ..models.logistic_regression import (
-    candidate_ratio,
-    eval_ghat,
-    fHat,
-    ghat,
-    simple_logistic,
-)
+from ..config import DEFAULT_CONFIG
+from ..models.logistic_regression import eval_ghat, fHat, ghat, simple_logistic
 
 
-def QSA(X, Y, T, seldonian_type, init_sol, init_sol1):
+def QSA(X, Y, T, seldonian_type, init_sol, init_sol1, config=DEFAULT_CONFIG):
     """
     This function is used to run the qsa (Quasi-Seldonian Algorithm)
 
@@ -22,15 +17,16 @@ def QSA(X, Y, T, seldonian_type, init_sol, init_sol1):
     :param seldonian_type: The mode used in the experiment
     :param init_sol: The initial theta values for the model
     :param init_sol1: The additional initial theta values for the model
+    :param config: Algorithm configuration
     :return: (theta, theta1, passed_safety) tuple
     """
     cand_data_X, safe_data_X, cand_data_Y, safe_data_Y = train_test_split(
-        X, Y, test_size=1 - candidate_ratio, shuffle=False
+        X, Y, test_size=1 - config.candidate_ratio, shuffle=False
     )
     cand_data_T, safe_data_T = np.split(
         T,
         [
-            int(candidate_ratio * T.size),
+            int(config.candidate_ratio * T.size),
         ],
     )
 
@@ -38,22 +34,32 @@ def QSA(X, Y, T, seldonian_type, init_sol, init_sol1):
         cand_data_X,
         cand_data_Y,
         cand_data_T,
-        candidate_ratio,
         seldonian_type,
         init_sol,
         init_sol1,
+        config,
     )
     print(
         "Actual cand sol upperbound: ",
-        eval_ghat(theta, theta1, cand_data_X, cand_data_Y, cand_data_T, seldonian_type),
+        eval_ghat(
+            theta, theta1, cand_data_X, cand_data_Y, cand_data_T, seldonian_type, config
+        ),
     )
     passed_safety = safety_test(
-        theta, theta1, safe_data_X, safe_data_Y, safe_data_T, seldonian_type
+        theta, theta1, safe_data_X, safe_data_Y, safe_data_T, seldonian_type, config
     )
     return [theta, theta1, passed_safety]
 
 
-def safety_test(theta, theta1, safe_data_X, safe_data_Y, safe_data_T, seldonian_type):
+def safety_test(
+    theta,
+    theta1,
+    safe_data_X,
+    safe_data_Y,
+    safe_data_T,
+    seldonian_type,
+    config=DEFAULT_CONFIG,
+):
     """
     This function does the safety test.
 
@@ -63,10 +69,11 @@ def safety_test(theta, theta1, safe_data_X, safe_data_Y, safe_data_T, seldonian_
     :param safe_data_Y: The corresponding labels of the safety dataset
     :param safe_data_T: The corresponding sensitive attributes of the safety dataset
     :param seldonian_type: The mode used in the experiment
+    :param config: Algorithm configuration
     :return: Bool value of whether the candidate solution passed safety test or not.
     """
     upper_bound = eval_ghat(
-        theta, theta1, safe_data_X, safe_data_Y, safe_data_T, seldonian_type
+        theta, theta1, safe_data_X, safe_data_Y, safe_data_T, seldonian_type, config
     )
     print("Safety test upperbound: ", upper_bound)
     if upper_bound > 0.0:
@@ -78,10 +85,10 @@ def get_cand_solution(
     cand_data_X,
     cand_data_Y,
     cand_data_T,
-    candidate_ratio,
     seldonian_type,
     init_sol,
     init_sol1,
+    config=DEFAULT_CONFIG,
 ):
     """
     This function provides the candidate solution.
@@ -92,6 +99,7 @@ def get_cand_solution(
     :param seldonian_type: The mode used in the experiment
     :param init_sol: The initial theta values for the model
     :param init_sol1: The additional initial theta values for the model
+    :param config: Algorithm configuration
     :return: The candidate solution (theta, theta1).
     """
     if init_sol is None:
@@ -99,7 +107,13 @@ def get_cand_solution(
     print(
         "Initial LS upperbound: ",
         eval_ghat(
-            init_sol, init_sol1, cand_data_X, cand_data_Y, cand_data_T, seldonian_type
+            init_sol,
+            init_sol1,
+            cand_data_X,
+            cand_data_Y,
+            cand_data_T,
+            seldonian_type,
+            config,
         ),
     )
     theta = init_sol.detach().numpy()
@@ -110,7 +124,7 @@ def get_cand_solution(
         x0=init_theta,
         method="Powell",
         options={"disp": False, "maxiter": 10000},
-        args=(cand_data_X, cand_data_Y, cand_data_T, candidate_ratio, seldonian_type),
+        args=(cand_data_X, cand_data_Y, cand_data_T, seldonian_type, config),
     )
     theta_numpy = res.x[:-1]
     theta1_numpy = res.x[-1]
@@ -119,9 +133,7 @@ def get_cand_solution(
     return theta0, theta1
 
 
-def cand_obj(
-    theta, cand_data_X, cand_data_Y, cand_data_T, candidate_ratio, seldonian_type
-):
+def cand_obj(theta, cand_data_X, cand_data_Y, cand_data_T, seldonian_type, config):
     """
     Objective function minimized by the optimizer.
 
@@ -129,8 +141,8 @@ def cand_obj(
     :param cand_data_X: The features of the candidate dataset
     :param cand_data_Y: The corresponding labels of the candidate dataset
     :param cand_data_T: The corresponding sensitive attributes of the candidate dataset
-    :param candidate_ratio: The candidate:safety ratio used in the experiment
     :param seldonian_type: The mode used in the experiment
+    :param config: Algorithm configuration
     :return: The objective value.
     """
     theta_numpy = theta[:-1]
@@ -145,8 +157,9 @@ def cand_obj(
         cand_data_X,
         cand_data_Y,
         cand_data_T,
-        candidate_ratio,
+        config.candidate_ratio,
         seldonian_type,
+        config,
     )
 
     if upper_bound > 0.0:
@@ -155,12 +168,18 @@ def cand_obj(
 
 
 def _get_cand_solution2(
-    cand_data_X, cand_data_Y, cand_data_T, candidate_ratio, seldonian_type
+    cand_data_X, cand_data_Y, cand_data_T, seldonian_type, config=DEFAULT_CONFIG
 ):
     init_sol, init_sol1 = simple_logistic(cand_data_X, cand_data_Y)
     init_fhat = fHat(init_sol, init_sol1, cand_data_X, cand_data_Y)
     init_ghat = eval_ghat(
-        init_sol, init_sol1, cand_data_X, cand_data_Y, cand_data_T, seldonian_type
+        init_sol,
+        init_sol1,
+        cand_data_X,
+        cand_data_Y,
+        cand_data_T,
+        seldonian_type,
+        config,
     )
     init_fhat.backward()
     assert init_sol.grad is not None and init_sol1.grad is not None
@@ -179,7 +198,13 @@ def _get_cand_solution2(
     print(
         "Initial LS upperbound: ",
         eval_ghat(
-            init_sol, init_sol1, cand_data_X, cand_data_Y, cand_data_T, seldonian_type
+            init_sol,
+            init_sol1,
+            cand_data_X,
+            cand_data_Y,
+            cand_data_T,
+            seldonian_type,
+            config,
         ),
     )
     theta = init_sol.detach().numpy()
@@ -194,9 +219,9 @@ def _get_cand_solution2(
             cand_data_X,
             cand_data_Y,
             cand_data_T,
-            candidate_ratio,
             seldonian_type,
             fin_lambda,
+            config,
         ),
     )
     theta_numpy = res.x[:-1]
@@ -211,9 +236,9 @@ def _cand_obj2(
     cand_data_X,
     cand_data_Y,
     cand_data_T,
-    candidate_ratio,
     seldonian_type,
     lambda_value,
+    config,
 ):
     theta_numpy = theta[:-1]
     theta1_numpy = theta[-1]
@@ -222,7 +247,7 @@ def _cand_obj2(
 
     result = fHat(theta0, theta1, cand_data_X, cand_data_Y)
     upper_bound = eval_ghat(
-        theta0, theta1, cand_data_X, cand_data_Y, cand_data_T, seldonian_type
+        theta0, theta1, cand_data_X, cand_data_Y, cand_data_T, seldonian_type, config
     )
     if upper_bound > 0:
         result = float(-1000 - (lambda_value * upper_bound))

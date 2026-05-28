@@ -13,6 +13,17 @@ Subpackages
    fair_seldonian.experiments
    fair_seldonian.models
 
+Submodules
+----------
+
+fair\_seldonian.config module
+-----------------------------
+
+.. automodule:: fair_seldonian.config
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 Module contents
 ---------------
 

@@ -5,6 +5,7 @@ import timeit
 import numpy as np
 
 from ..algorithms.qsa import QSA
+from ..config import DEFAULT_CONFIG
 from ..data.synthetic import data_split, get_data
 from ..models.logistic_regression import eval_ghat, fHat, simple_logistic
 
@@ -25,6 +26,7 @@ def store_result(
     numTrials,
     seldonian_type,
     ls_dumb,
+    config=DEFAULT_CONFIG,
 ):
     """
     Print and store the resultant information in a file.
@@ -45,7 +47,7 @@ def store_result(
     if ls_dumb:
         trueLogLoss = float(-fHat(theta, theta1, testX, testY))
         upper_bound = float(
-            eval_ghat(theta, theta1, testX, testY, testT, seldonian_type)
+            eval_ghat(theta, theta1, testX, testY, testT, seldonian_type, config)
         )
         failures_g1 = 0
         if upper_bound > 0:
@@ -60,7 +62,7 @@ def store_result(
         return 1, failures_g1, upper_bound, -trueLogLoss
     elif passedSafetyTest:
         trueLogLoss = float(-fHat(theta, theta1, testX, testY))
-        u = float(eval_ghat(theta, theta1, testX, testY, testT, seldonian_type))
+        u = float(eval_ghat(theta, theta1, testX, testY, testT, seldonian_type, config))
         failures_g1 = 0
         if u > 0:
             failures_g1 = 1
@@ -80,7 +82,17 @@ def store_result(
         return 0, 0, 0, None
 
 
-def run_experiments(worker_id, nWorkers, ms, numM, numTrials, mTest, N, seldonian_type):
+def run_experiments(
+    worker_id,
+    nWorkers,
+    ms,
+    numM,
+    numTrials,
+    mTest,
+    N,
+    seldonian_type,
+    config=DEFAULT_CONFIG,
+):
     """
     Main function that runs the experiment.
 
@@ -140,10 +152,11 @@ def run_experiments(worker_id, nWorkers, ms, numM, numTrials, mTest, N, seldonia
                 numTrials,
                 seldonian_type,
                 "LS",
+                config,
             )
 
             (theta, theta1, passedSafetyTest) = QSA(
-                trainX, trainY, trainT, seldonian_type, init_sol, init_sol1
+                trainX, trainY, trainT, seldonian_type, init_sol, init_sol1, config
             )
             (
                 s_solutions_found[trial, mIndex],
@@ -164,6 +177,7 @@ def run_experiments(worker_id, nWorkers, ms, numM, numTrials, mTest, N, seldonia
                 numTrials,
                 seldonian_type,
                 None,
+                config,
             )
             if s_solutions_found[trial, mIndex] == 1:
                 init_sol, init_sol1 = theta, theta1
