@@ -1,0 +1,71 @@
+version: 2.1
+
+jobs:
+  lint:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - checkout
+      - run:
+          name: Install linters
+          command: pip install ruff isort
+      - run:
+          name: Ruff check
+          command: ruff check src/ tests/
+      - run:
+          name: Ruff format check
+          command: ruff format --check src/ tests/
+      - run:
+          name: isort check
+          command: isort --check src/ tests/
+
+  test:
+    parameters:
+      python-version:
+        type: string
+    docker:
+      - image: cimg/python:<< parameters.python-version >>
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - pip-{{ checksum "pyproject.toml" }}-<< parameters.python-version >>
+      - run:
+          name: Install dependencies
+          command: pip install -e ".[dev]"
+      - save_cache:
+          key: pip-{{ checksum "pyproject.toml" }}-<< parameters.python-version >>
+          paths:
+            - ~/.local/lib
+      - run:
+          name: Run tests
+          command: pytest --cov --cov-branch --cov-report=xml --junitxml=test-results/results.xml
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: coverage.xml
+
+  changelog:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - checkout
+      - run:
+          name: Install towncrier
+          command: pip install towncrier
+      - run:
+          name: Check changelog fragment
+          command: towncrier check
+
+workflows:
+  ci:
+    jobs:
+      - lint
+      - test:
+          matrix:
+            parameters:
+              python-version: ["3.10", "3.11", "3.12", "3.13"]
+      - changelog:
+          filters:
+            branches:
+              ignore: master
