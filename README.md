@@ -8,6 +8,7 @@
 [![codecov](https://codecov.io/gh/parulgupta1004/fair-seldonian/branch/master/graph/badge.svg)](https://codecov.io/gh/parulgupta1004/fair-seldonian)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/parulgupta1004/fair-seldonian/blob/master/LICENSE)
 [![Docs](https://img.shields.io/badge/docs-Sphinx-8CA1AF?logo=readthedocs&logoColor=white)](https://parulgupta1004.github.io/fair-seldonian/)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/fair-seldonian?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/fair-seldonian)
 [![Paper](https://img.shields.io/badge/paper-Science%20(2019)-orange)](https://www.science.org/doi/10.1126/science.aag3311)
 
 ---
