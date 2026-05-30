@@ -1,1 +1,0 @@
-Support for Python 3.14 and free-threaded (no-GIL) Python 3.14t with CI testing via deadsnakes PPA. Uses environment markers to require higher dependency floors on 3.14+ (numpy>=2.3.2, pandas>=2.3.3, scikit-learn>=1.8.0, scipy>=1.16.1, torch>=2.9.0) while preserving existing floors for 3.10–3.13. Added coverage>=7.6.1 to dev extras for free-threaded support.

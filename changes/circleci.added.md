@@ -1,1 +1,0 @@
-CircleCI configuration with lint, test (Python 3.10–3.13), and changelog check jobs.
