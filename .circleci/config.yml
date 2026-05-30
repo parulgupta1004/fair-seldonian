@@ -63,25 +63,22 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Install uv
+          command: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - run:
           name: Install free-threaded Python 3.14
-          command: |
-            sudo add-apt-repository ppa:deadsnakes/ppa -y
-            sudo apt-get update
-            sudo apt-get install -y python3.14-nogil python3.14-nogil-venv python3.14-nogil-dev
+          command: uv python install 3.14t
       - run:
           name: Verify free-threaded Python
-          command: python3.14t --version
+          command: uv run --python 3.14t python --version
       - restore_cache:
           keys:
-            - pip-{{ checksum "pyproject.toml" }}-3.14t
+            - uv-{{ checksum "pyproject.toml" }}-3.14t
       - run:
           name: Install dependencies
-          command: |
-            python3.14t -m venv .venv
-            . .venv/bin/activate
-            pip install -e ".[dev]"
+          command: uv venv --python 3.14t .venv && . .venv/bin/activate && uv pip install -e ".[dev]"
       - save_cache:
-          key: pip-{{ checksum "pyproject.toml" }}-3.14t
+          key: uv-{{ checksum "pyproject.toml" }}-3.14t
           paths:
             - .venv
       - run:
