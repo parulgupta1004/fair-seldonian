@@ -57,6 +57,48 @@ jobs:
       - store_artifacts:
           path: coverage.xml
 
+  test-freethreaded:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: Install free-threaded Python 3.14
+          command: |
+            sudo add-apt-repository ppa:deadsnakes/ppa -y
+            sudo apt-get update
+            sudo apt-get install -y python3.14-nogil python3.14-nogil-venv python3.14-nogil-dev
+      - run:
+          name: Verify free-threaded Python
+          command: python3.14t --version
+      - restore_cache:
+          keys:
+            - pip-{{ checksum "pyproject.toml" }}-3.14t
+      - run:
+          name: Install dependencies
+          command: |
+            python3.14t -m venv .venv
+            . .venv/bin/activate
+            pip install -e ".[dev]"
+      - save_cache:
+          key: pip-{{ checksum "pyproject.toml" }}-3.14t
+          paths:
+            - .venv
+      - run:
+          name: Verify GIL is disabled
+          command: |
+            . .venv/bin/activate
+            python -c "import sys; assert not sys._is_gil_enabled(), 'GIL should be disabled'"
+      - run:
+          name: Run tests (free-threaded)
+          command: |
+            . .venv/bin/activate
+            pytest --cov --cov-branch --cov-report=xml --junitxml=test-results/results.xml
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: coverage.xml
+
   changelog:
     docker:
       - image: cimg/python:3.12
@@ -82,7 +124,8 @@ workflows:
       - test:
           matrix:
             parameters:
-              python-version: ["3.10", "3.11", "3.12", "3.13"]
+              python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+      - test-freethreaded
       - changelog:
           filters:
             branches:
