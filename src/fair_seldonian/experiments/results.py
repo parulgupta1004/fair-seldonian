@@ -18,12 +18,12 @@ def get_existing_experiment_numbers():
     return experiment_numbers
 
 
-def genFilename(n):
+def gen_filename(n):
     return bin_path + "results%d.npz" % n
 
 
-def addMoreResults(
-    newFileId,
+def add_more_results(
+    new_file_id,
     ms,
     seldonian_solutions_found,
     seldonian_fs,
@@ -34,18 +34,18 @@ def addMoreResults(
     LS_failures_g1,
     LS_upper_bound,
 ):
-    newFile = np.load(genFilename(newFileId))
-    new_ms = newFile["ms"]
+    new_file = np.load(gen_filename(new_file_id))
+    new_ms = new_file["ms"]
 
-    new_seldonian_solutions_found = newFile["s_solutions_found"]
-    new_seldonian_fs = newFile["s_fs"]
-    new_seldonian_failures_g1 = newFile["s_failures_g1"]
-    new_seldonian_upper_bound = newFile["s_upper_bound"]
+    new_seldonian_solutions_found = new_file["s_solutions_found"]
+    new_seldonian_fs = new_file["s_fs"]
+    new_seldonian_failures_g1 = new_file["s_failures_g1"]
+    new_seldonian_upper_bound = new_file["s_upper_bound"]
 
-    new_LS_solutions_found = newFile["LS_solutions_found"]
-    new_LS_fs = newFile["LS_fs"]
-    new_LS_failures_g1 = newFile["LS_failures_g1"]
-    new_LS_upper_bound = newFile["LS_upper_bound"]
+    new_LS_solutions_found = new_file["LS_solutions_found"]
+    new_LS_fs = new_file["LS_fs"]
+    new_LS_failures_g1 = new_file["LS_failures_g1"]
+    new_LS_upper_bound = new_file["LS_upper_bound"]
 
     if ms is None:
         return [
@@ -94,16 +94,16 @@ def stderror(v):
     return np.nanstd(v, ddof=1) / np.sqrt(non_nan)
 
 
-def saveToCSV(ms, resultsQSA, resultsLS, filename):
-    nCols = resultsQSA.shape[1]
+def save_to_csv(ms, results_qsa, results_ls, filename):
+    n_cols = results_qsa.shape[1]
 
     with open(filename, mode="w") as file:
         writer = csv.writer(file, delimiter=",")
 
-        for col in range(nCols):
+        for col in range(n_cols):
             cur_m = ms[col]
-            seldonian_data = resultsQSA[:, col]
-            LS_data = resultsLS[:, col]
+            seldonian_data = results_qsa[:, col]
+            LS_data = results_ls[:, col]
 
             non_nan = np.count_nonzero(~np.isnan(seldonian_data))
             if non_nan > 0:
@@ -135,7 +135,7 @@ def gather_results():
     experiment_numbers = get_existing_experiment_numbers()
 
     for file_idx in experiment_numbers:
-        res = addMoreResults(
+        res = add_more_results(
             file_idx,
             ms,
             seldonian_solutions_found,
@@ -163,12 +163,12 @@ def gather_results():
         print("No experiment results found.")
         return
 
-    saveToCSV(ms, -seldonian_fs, -LS_fs, csv_path + "fs.csv")
-    saveToCSV(
+    save_to_csv(ms, -seldonian_fs, -LS_fs, csv_path + "fs.csv")
+    save_to_csv(
         ms,
         seldonian_solutions_found,
         LS_solutions_found,
         csv_path + "solutions_found.csv",
     )
-    saveToCSV(ms, seldonian_failures_g1, LS_failures_g1, csv_path + "failures_g1.csv")
-    saveToCSV(ms, seldonian_upper_bound, LS_upper_bound, csv_path + "upper_bound.csv")
+    save_to_csv(ms, seldonian_failures_g1, LS_failures_g1, csv_path + "failures_g1.csv")
+    save_to_csv(ms, seldonian_upper_bound, LS_upper_bound, csv_path + "upper_bound.csv")

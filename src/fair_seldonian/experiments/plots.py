@@ -7,7 +7,7 @@ csv_path = "exp/lag_exp/csv/"
 img_path = "exp/lag_exp/images/"
 
 
-def loadAndPlotResults(fileName, ylabel, output_file, is_yAxis_prob, legend_loc):
+def load_and_plot_results(file_name, ylabel, output_file, is_yAxis_prob, legend_loc):
     """
     Plot results from CSV files and store the final graph.
 
@@ -18,7 +18,7 @@ def loadAndPlotResults(fileName, ylabel, output_file, is_yAxis_prob, legend_loc)
     :param legend_loc: The location of the legend
     """
     file_ms, file_QSA, file_QSA_stderror, file_LS, file_LS_stderror = np.loadtxt(
-        fileName, delimiter=",", unpack=True
+        file_name, delimiter=",", unpack=True
     )
 
     plt.figure()
@@ -46,28 +46,28 @@ def loadAndPlotResults(fileName, ylabel, output_file, is_yAxis_prob, legend_loc)
 if __name__ == "__main__":
     gather_results()
 
-    loadAndPlotResults(
+    load_and_plot_results(
         csv_path + "fs.csv",
         "Log Loss",
         img_path + "tutorial7MSE_py.png",
         False,
         "lower right",
     )
-    loadAndPlotResults(
+    load_and_plot_results(
         csv_path + "solutions_found.csv",
         "Probability of Solution",
         img_path + "tutorial7PrSoln_py.png",
         True,
         "best",
     )
-    loadAndPlotResults(
+    load_and_plot_results(
         csv_path + "failures_g1.csv",
         r"Probability of $g(a(D))>0$",
         img_path + "tutorial7PrFail1_py.png",
         True,
         "best",
     )
-    loadAndPlotResults(
+    load_and_plot_results(
         csv_path + "upper_bound.csv",
         r"upper bound",
         img_path + "tutorial7PrFail2_py.png",

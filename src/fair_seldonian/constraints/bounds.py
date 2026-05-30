@@ -1,12 +1,7 @@
 import math
 
 
-def isMod(element):
-    """
-    A utility function to check if 'element' is mod function
-    :param element: expr_tree node
-    :return: bool
-    """
+def is_mod(element):
     if element == "abs":
         return True
     return False
@@ -24,7 +19,7 @@ def eval_math_bound(l_x, u_x, l_y=None, u_y=None, operator=None):
         return l_x, u_x
     elif operator == "/":
         return eval_div_bound(l_x, u_x, l_y, u_y)
-    elif isMod(operator):
+    elif is_mod(operator):
         return eval_abs_bound(l_x, u_x)
     return None, None
 
