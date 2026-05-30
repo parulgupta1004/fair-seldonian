@@ -76,7 +76,7 @@ jobs:
             - uv-{{ checksum "pyproject.toml" }}-3.14t
       - run:
           name: Install dependencies
-          command: uv venv --python 3.14t .venv && . .venv/bin/activate && uv pip install -e ".[dev]"
+          command: uv venv --python 3.14t --clear .venv && . .venv/bin/activate && uv pip install -e ".[dev]"
       - save_cache:
           key: uv-{{ checksum "pyproject.toml" }}-3.14t
           paths:

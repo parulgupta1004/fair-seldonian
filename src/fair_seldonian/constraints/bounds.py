@@ -1,12 +1,6 @@
 import math
 
 
-def is_mod(element):
-    if element == "abs":
-        return True
-    return False
-
-
 def eval_math_bound(l_x, u_x, l_y=None, u_y=None, operator=None):
     if operator == "+":
         return eval_add_bound(l_x, u_x, l_y, u_y)
@@ -19,7 +13,7 @@ def eval_math_bound(l_x, u_x, l_y=None, u_y=None, operator=None):
         return l_x, u_x
     elif operator == "/":
         return eval_div_bound(l_x, u_x, l_y, u_y)
-    elif is_mod(operator):
+    elif operator == "abs":
         return eval_abs_bound(l_x, u_x)
     return None, None
 
