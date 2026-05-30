@@ -1,3 +1,5 @@
+import logging
+
 from .expression_tree import ExprTree as _BaseExprTree
 from .expression_tree import (
     _eval_node_bounds,
@@ -5,6 +7,8 @@ from .expression_tree import (
     eval_expr_tree_base,
     is_func,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ExprTree(_BaseExprTree):
@@ -177,5 +181,5 @@ def eval_expr_tree_conf_interval(
 def inorder_ext(t_node):
     if t_node is not None:
         inorder_ext(t_node.left)
-        print(t_node.value, t_node.delta)
+        logger.debug("%s %s", t_node.value, t_node.delta)
         inorder_ext(t_node.right)

@@ -1,5 +1,9 @@
+import logging
+
 from .bounds import eval_math_bound
 from .inequalities import eval_estimate, eval_func_bound
+
+logger = logging.getLogger(__name__)
 
 
 ####################
@@ -252,12 +256,12 @@ def eval_expr_tree_conf_interval_base(
 ##############
 def inorder(t_node):
     """
-    A utility function to print inorder traversal
+    A utility function to log inorder traversal
 
     :param t_node: ExprTree node
     :return: None
     """
     if t_node is not None:
         inorder(t_node.left)
-        print(t_node.value, end=" ")
+        logger.debug("%s", t_node.value)
         inorder(t_node.right)

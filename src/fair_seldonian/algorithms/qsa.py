@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 import torch
 from scipy.optimize import minimize
@@ -5,6 +7,8 @@ from sklearn.model_selection import train_test_split
 
 from ..config import DEFAULT_CONFIG
 from ..models.logistic_regression import eval_ghat, f_hat, ghat, simple_logistic
+
+logger = logging.getLogger(__name__)
 
 
 def QSA(X, Y, T, seldonian_type, init_sol, init_sol1, config=DEFAULT_CONFIG):
@@ -39,8 +43,8 @@ def QSA(X, Y, T, seldonian_type, init_sol, init_sol1, config=DEFAULT_CONFIG):
         init_sol1,
         config,
     )
-    print(
-        "Actual cand sol upperbound: ",
+    logger.debug(
+        "Actual cand sol upperbound: %s",
         eval_ghat(
             theta, theta1, cand_data_X, cand_data_Y, cand_data_T, seldonian_type, config
         ),
@@ -75,7 +79,7 @@ def safety_test(
     upper_bound = eval_ghat(
         theta, theta1, safe_data_X, safe_data_Y, safe_data_T, seldonian_type, config
     )
-    print("Safety test upperbound: ", upper_bound)
+    logger.debug("Safety test upperbound: %s", upper_bound)
     if upper_bound > 0.0:
         return False
     return True
@@ -104,7 +108,7 @@ def get_cand_solution(
     """
     if init_sol is None:
         init_sol, init_sol1 = simple_logistic(cand_data_X, cand_data_Y)
-    print(
+    logger.debug(
         "Initial LS upperbound: ",
         eval_ghat(
             init_sol,
@@ -195,8 +199,8 @@ def _get_cand_solution2(
             break
     if not fin_lambda:
         fin_lambda = 1
-    print(
-        "Initial LS upperbound: ",
+    logger.debug(
+        "Initial LS upperbound: %s",
         eval_ghat(
             init_sol,
             init_sol1,

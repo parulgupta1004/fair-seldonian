@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 import torch
 from sklearn.linear_model import LogisticRegression
@@ -11,6 +13,8 @@ from ..constraints.expression_tree_ext import (
     construct_expr_tree,
     eval_expr_tree_conf_interval,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def predict(theta, theta1, X):
@@ -65,11 +69,11 @@ def simple_logistic(X, Y):
         theta0 = reg.intercept_[0]
         theta1 = reg.coef_[0]
         return torch.tensor(
-            np.array([theta1[0], theta1[1], theta1[2], theta1[3], theta1[4]]),
+            theta1,
             requires_grad=True,
         ), torch.tensor(np.array([theta0]), requires_grad=True)
-    except Exception as e:
-        print("Exception in logRes:", e)
+    except Exception:
+        logger.exception("Exception in logRes")
         raise
 
 

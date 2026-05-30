@@ -1,3 +1,5 @@
+import logging
+import os
 import sys
 import time
 import timeit
@@ -9,7 +11,9 @@ from ..config import DEFAULT_CONFIG
 from ..data.synthetic import data_split, get_data
 from ..models.logistic_regression import eval_ghat, f_hat, simple_logistic
 
-bin_path = "exp/exp_{}/bin/"
+logger = logging.getLogger(__name__)
+
+DEFAULT_OUTPUT_DIR = "exp/exp_{}/bin/"
 
 
 def store_result(
@@ -54,10 +58,14 @@ def store_result(
             failures_g1 = 1
         w = f"(worker {worker_id}/{nWorkers})"
         t = f"trial {trial + 1}/{numTrials}"
-        print(
-            f"[{w} {ls_dumb} {t}, m {m}]"
-            f" f_hat: {trueLogLoss:.10f},"
-            f" upper bound: {upper_bound:.10f}"
+        logger.info(
+            "[%s %s %s, m %s] f_hat: %.10f, upper bound: %.10f",
+            w,
+            ls_dumb,
+            t,
+            m,
+            trueLogLoss,
+            upper_bound,
         )
         return 1, failures_g1, upper_bound, -trueLogLoss
     elif passedSafetyTest:
@@ -68,17 +76,22 @@ def store_result(
             failures_g1 = 1
         w = f"(worker {worker_id}/{nWorkers})"
         t = f"trial {trial + 1}/{numTrials}"
-        print(
-            f"[{w} {seldonian_type} {t}, m {m}]"
-            f" Solution: [{theta}, {theta1}]"
-            f" f_hat: {trueLogLoss:.10f},"
-            f" upper bound: {u:.10f}"
+        logger.info(
+            "[%s %s %s, m %s] Solution: [%s, %s] f_hat: %.10f, upper bound: %.10f",
+            w,
+            seldonian_type,
+            t,
+            m,
+            theta,
+            theta1,
+            trueLogLoss,
+            u,
         )
         return 1, failures_g1, u, -trueLogLoss
     else:
         w = f"(worker {worker_id}/{nWorkers})"
         t = f"trial {trial + 1}/{numTrials}"
-        print(f"[{w} SBase {t}, m {m}] No solution found")
+        logger.info("[%s SBase %s, m %s] No solution found", w, t, m)
         return 0, 0, 0, None
 
 
@@ -92,6 +105,7 @@ def run_experiments(
     N,
     seldonian_type,
     config=DEFAULT_CONFIG,
+    output_dir=DEFAULT_OUTPUT_DIR,
 ):
     """
     Main function that runs the experiment.
@@ -117,8 +131,9 @@ def run_experiments(
     LS_fs = np.zeros((numTrials, numM))
 
     experiment_number = worker_id
-    outputFile = bin_path.format(seldonian_type) + "results%d.npz" % experiment_number
-    print("Writing output to", outputFile)
+    output_path = output_dir.format(seldonian_type)
+    outputFile = os.path.join(output_path, "results%d.npz" % experiment_number)
+    logger.info("Writing output to %s", outputFile)
 
     base_seed = (experiment_number * 99) + 1
     All = get_data(N, 5, 0.4, 0.4, 0.6, base_seed)
@@ -194,7 +209,7 @@ def run_experiments(
         LS_failures_g1=LS_failures_g1,
         LS_upper_bound=LS_upper_bound,
     )
-    print(f"Saved the file {outputFile}")
+    logger.info("Saved the file %s", outputFile)
 
 
 if __name__ == "__main__":
@@ -207,17 +222,17 @@ if __name__ == "__main__":
 
     run_experiments_remote = ray.remote(run_experiments)
 
-    print("Assuming the default: 50")
+    logger.info("Assuming the default: 50")
     nWorkers = 2
-    print(f"Running experiments on {nWorkers} threads")
+    logger.info("Running experiments on %d threads", nWorkers)
     N = 10000
     ms = np.logspace(-2, 0, num=3)
-    print("N {}, frac array: {}".format(N, ms))
-    print("Running for: {}".format(sys.argv[1]))
+    logger.info("N %d, frac array: %s", N, ms)
+    logger.info("Running for: %s", sys.argv[1])
     numM = len(ms)
     numTrials = 2
     mTest = 0.2
-    print("Number of trials: ", numTrials)
+    logger.info("Number of trials: %d", numTrials)
 
     tic = timeit.default_timer()
     _ = ray.get(
@@ -230,6 +245,6 @@ if __name__ == "__main__":
     )
     toc = timeit.default_timer()
     time_parallel = toc - tic
-    print(f"Time elapsed: {time_parallel}")
+    logger.info("Time elapsed: %s", time_parallel)
     time.sleep(2)
     ray.shutdown()

@@ -3,15 +3,12 @@ import numpy as np
 
 from .results import gather_results
 
-csv_path = "exp/lag_exp/csv/"
-img_path = "exp/lag_exp/images/"
-
 
 def load_and_plot_results(file_name, ylabel, output_file, is_yAxis_prob, legend_loc):
     """
     Plot results from CSV files and store the final graph.
 
-    :param filename: The csv file path from where the data is imported
+    :param file_name: The csv file path from where the data is imported
     :param ylabel: The lable on the Y-axis of the graph
     :param output_file: The path where the graph image must be stored
     :param is_yAxis_prob: Bool of whether the Y-axis is probabity value or not
@@ -44,6 +41,9 @@ def load_and_plot_results(file_name, ylabel, output_file, is_yAxis_prob, legend_
 
 
 if __name__ == "__main__":
+    csv_path = "exp/lag_exp/csv/"
+    img_path = "exp/lag_exp/images/"
+
     gather_results()
 
     load_and_plot_results(

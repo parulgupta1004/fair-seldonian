@@ -1,15 +1,19 @@
 import csv
 import glob
+import logging
+import os
 import re
 
 import numpy as np
 
-bin_path = "exp/lag_exp/bin/"
-csv_path = "exp/lag_exp/csv/"
+logger = logging.getLogger(__name__)
+
+DEFAULT_BIN_PATH = "exp/lag_exp/bin/"
+DEFAULT_CSV_PATH = "exp/lag_exp/csv/"
 
 
-def get_existing_experiment_numbers():
-    result_files = glob.glob(bin_path + "results*.npz")
+def get_existing_experiment_numbers(bin_path=DEFAULT_BIN_PATH):
+    result_files = glob.glob(os.path.join(bin_path, "results*.npz"))
     matches = [
         re.search(".*results([0-9]*).*", fn, re.IGNORECASE) for fn in result_files
     ]
@@ -18,8 +22,8 @@ def get_existing_experiment_numbers():
     return experiment_numbers
 
 
-def gen_filename(n):
-    return bin_path + "results%d.npz" % n
+def gen_filename(n, bin_path=DEFAULT_BIN_PATH):
+    return os.path.join(bin_path, "results%d.npz" % n)
 
 
 def add_more_results(
@@ -33,8 +37,9 @@ def add_more_results(
     LS_fs,
     LS_failures_g1,
     LS_upper_bound,
+    bin_path=DEFAULT_BIN_PATH,
 ):
-    new_file = np.load(gen_filename(new_file_id))
+    new_file = np.load(gen_filename(new_file_id, bin_path))
     new_ms = new_file["ms"]
 
     new_seldonian_solutions_found = new_file["s_solutions_found"]
@@ -121,7 +126,7 @@ def save_to_csv(ms, results_qsa, results_ls, filename):
             )
 
 
-def gather_results():
+def gather_results(bin_path=DEFAULT_BIN_PATH, csv_path=DEFAULT_CSV_PATH):
     ms = None
     seldonian_solutions_found = None
     seldonian_fs = None
@@ -132,7 +137,7 @@ def gather_results():
     LS_failures_g1 = None
     LS_upper_bound = None
 
-    experiment_numbers = get_existing_experiment_numbers()
+    experiment_numbers = get_existing_experiment_numbers(bin_path)
 
     for file_idx in experiment_numbers:
         res = add_more_results(
@@ -146,6 +151,7 @@ def gather_results():
             LS_fs,
             LS_failures_g1,
             LS_upper_bound,
+            bin_path,
         )
         [
             ms,
@@ -160,15 +166,25 @@ def gather_results():
         ] = res
 
     if ms is None or seldonian_fs is None or LS_fs is None:
-        print("No experiment results found.")
+        logger.warning("No experiment results found.")
         return
 
-    save_to_csv(ms, -seldonian_fs, -LS_fs, csv_path + "fs.csv")
+    save_to_csv(ms, -seldonian_fs, -LS_fs, os.path.join(csv_path, "fs.csv"))
     save_to_csv(
         ms,
         seldonian_solutions_found,
         LS_solutions_found,
-        csv_path + "solutions_found.csv",
+        os.path.join(csv_path, "solutions_found.csv"),
     )
-    save_to_csv(ms, seldonian_failures_g1, LS_failures_g1, csv_path + "failures_g1.csv")
-    save_to_csv(ms, seldonian_upper_bound, LS_upper_bound, csv_path + "upper_bound.csv")
+    save_to_csv(
+        ms,
+        seldonian_failures_g1,
+        LS_failures_g1,
+        os.path.join(csv_path, "failures_g1.csv"),
+    )
+    save_to_csv(
+        ms,
+        seldonian_upper_bound,
+        LS_upper_bound,
+        os.path.join(csv_path, "upper_bound.csv"),
+    )
