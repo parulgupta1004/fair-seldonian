@@ -43,6 +43,9 @@ plots = ["matplotlib"]
 Homepage = "https://github.com/parulgupta1004/fair-seldonian"
 Documentation = "https://parulgupta1004.github.io/fair-seldonian/index.html"
 Repository = "https://github.com/parulgupta1004/fair-seldonian"
+Issues = "https://github.com/parulgupta1004/fair-seldonian/issues"
+Changelog = "https://github.com/parulgupta1004/fair-seldonian/blob/master/CHANGELOG.md"
+Author = "https://github.com/parulgupta1004"
 
 [build-system]
 requires = ["hatchling"]
