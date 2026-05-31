@@ -101,10 +101,22 @@ This work builds on:
 
 > Thomas, P.S., da Silva, B.C., Barto, A.G., Giguere, S., Brun, Y., & Brunskill, E. (2019). "Preventing undesirable behavior of intelligent machines." *Science*, 366(6468), 999–1004.
 
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, or open an [issue](https://github.com/parulgupta1004/fair-seldonian/issues) to get started.
+
+## Contributors
+
+Thanks to everyone who has contributed to this project!
+
+<a href="https://github.com/parulgupta1004/fair-seldonian/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=parulgupta1004/fair-seldonian" />
+</a>
+
 ## License
 
 [MIT](LICENSE)
 
 ---
 
-**Author:** [Parul Gupta](https://www.linkedin.com/in/parulgupta04/) · Initially developed under the guidance of Dr. Philip S. Thomas, University of Massachusetts Amherst.
+**Author:** [Parul Gupta](https://www.linkedin.com/in/parulgupta04/)
