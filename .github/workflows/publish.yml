@@ -1,8 +1,8 @@
 name: Publish
 
 on:
-  release:
-    types: [published]
+  push:
+    tags: ["v*"]
 
 permissions:
   contents: write
@@ -48,15 +48,19 @@ jobs:
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
 
-  upload-release-assets:
+  github-release:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
       - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
-      - name: Upload assets to release
+      - name: Create GitHub release with assets
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" dist/* --repo "${{ github.repository }}" --clobber
+        run: |
+          gh release create "${{ github.ref_name }}" dist/* \
+            --repo "${{ github.repository }}" \
+            --generate-notes
