@@ -96,6 +96,8 @@ def add_more_results(
 
 def stderror(v):
     non_nan = np.count_nonzero(~np.isnan(v))
+    if non_nan < 2:
+        return float("nan")
     return np.nanstd(v, ddof=1) / np.sqrt(non_nan)
 
 
