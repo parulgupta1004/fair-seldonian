@@ -21,32 +21,15 @@ class ExprTree:
 
 
 def is_operator(element):
-    if (
-        element == "+"
-        or element == "-"
-        or element == "*"
-        or element == "/"
-        or element == "^"
-    ):
-        return True
-    return False
+    return element in {"+", "-", "*", "/", "^"}
 
 
 def is_mod(element):
-    if element == "abs":
-        return True
-    return False
+    return element == "abs"
 
 
 def is_func(element):
-    if (
-        element.startswith("FP")
-        or element.startswith("FN")
-        or element.startswith("TP")
-        or element.startswith("TN")
-    ):
-        return True
-    return False
+    return element.startswith(("FP", "FN", "TP", "TN"))
 
 
 def construct_expr_tree_base(rev_polish_notation, node_class=None):
