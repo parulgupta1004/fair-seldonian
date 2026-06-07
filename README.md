@@ -23,6 +23,7 @@ Built on the Seldonian algorithm framework by [Thomas et al. (2019)](https://www
 |---|---|
 | **Documentation** | [parulgupta1004.github.io/fair-seldonian](https://parulgupta1004.github.io/fair-seldonian/) |
 | **Repository** | [github.com/parulgupta1004/fair-seldonian](https://github.com/parulgupta1004/fair-seldonian) |
+| **Example notebook** | [examples/quickstart.ipynb](examples/quickstart.ipynb) |
 | **Paper** | Thomas et al., *Science* 366 (2019) — [doi:10.1126/science.aag3311](https://www.science.org/doi/10.1126/science.aag3311) |
 
 ## Installation
@@ -33,12 +34,14 @@ cd fair-seldonian
 uv sync                          # core dependencies
 uv sync --extra experiments      # + Ray for parallel experiments
 uv sync --extra plots            # + matplotlib for visualization
+uv sync --extra notebook         # + JupyterLab to run examples/quickstart.ipynb
 ```
 
 Or with pip:
 
 ```bash
 pip install fair-seldonian
+pip install "fair-seldonian[notebook]"          # JupyterLab + matplotlib to run the quickstart
 pip install "fair-seldonian[experiments,plots]"
 ```
 
@@ -71,6 +74,26 @@ from fair_seldonian.constraints.inequalities import Inequality
 config = SeldonianConfig(delta=0.01, inequality=Inequality.T_TEST, candidate_ratio=0.5)
 theta, theta1, passed = QSA(X_tr, Y_tr, T_tr, "opt", None, None, config)
 ```
+
+## Examples
+
+A runnable, end-to-end walkthrough lives in [`examples/quickstart.ipynb`](examples/quickstart.ipynb):
+
+- generating synthetic data with a controllable fairness gap
+- training with QSA and reading the high-confidence safety guarantee
+- contrasting *fair* data (model certified) with *unfair* data (**No Solution Found**)
+- decoding and customizing the postfix constraint, `delta`, and inequality
+- comparing the five algorithm variants side by side
+- visualizing accuracy vs. the certified fairness bound, **with and without QSA**, on the same dataset
+
+Install the notebook dependencies and launch it with:
+
+```bash
+pip install "fair-seldonian[notebook]"
+jupyter lab examples/quickstart.ipynb
+```
+
+View it [rendered on nbviewer](https://nbviewer.org/github/parulgupta1004/fair-seldonian/blob/master/examples/quickstart.ipynb).
 
 ## Algorithm variants
 
