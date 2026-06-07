@@ -2,6 +2,20 @@
 
 <!-- towncrier release notes start -->
 
+## 2.1.1
+
+### Fixed
+
+- Corrected the GitHub release workflow used to publish releases to PyPI.
+
+
+## 2.1.0
+
+### Added
+
+- Added LICENSE file, CONTRIBUTING.md, and improved PyPI metadata.
+
+
 ## 2.0.0
 
 ### Added
