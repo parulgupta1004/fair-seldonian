@@ -1,0 +1,1 @@
+Validate `SeldonianConfig` values and raise clear errors for unknown inequalities and constraint variables; create experiment output directories before writing; and skip the debug-only confidence-bound computation when DEBUG logging is disabled.

@@ -263,5 +263,5 @@ def inorder(t_node):
     """
     if t_node is not None:
         inorder(t_node.left)
-        logger.debug("%s", t_node.value)
+        logger.debug(f"{t_node.value}")
         inorder(t_node.right)

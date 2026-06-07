@@ -59,13 +59,8 @@ def store_result(
         w = f"(worker {worker_id}/{nWorkers})"
         t = f"trial {trial + 1}/{numTrials}"
         logger.info(
-            "[%s %s %s, m %s] f_hat: %.10f, upper bound: %.10f",
-            w,
-            ls_dumb,
-            t,
-            m,
-            trueLogLoss,
-            upper_bound,
+            f"[{w} {ls_dumb} {t}, m {m}] "
+            f"f_hat: {trueLogLoss:.10f}, upper bound: {upper_bound:.10f}"
         )
         return 1, failures_g1, upper_bound, -trueLogLoss
     elif passedSafetyTest:
@@ -77,21 +72,14 @@ def store_result(
         w = f"(worker {worker_id}/{nWorkers})"
         t = f"trial {trial + 1}/{numTrials}"
         logger.info(
-            "[%s %s %s, m %s] Solution: [%s, %s] f_hat: %.10f, upper bound: %.10f",
-            w,
-            seldonian_type,
-            t,
-            m,
-            theta,
-            theta1,
-            trueLogLoss,
-            u,
+            f"[{w} {seldonian_type} {t}, m {m}] Solution: [{theta}, {theta1}] "
+            f"f_hat: {trueLogLoss:.10f}, upper bound: {u:.10f}"
         )
         return 1, failures_g1, u, -trueLogLoss
     else:
         w = f"(worker {worker_id}/{nWorkers})"
         t = f"trial {trial + 1}/{numTrials}"
-        logger.info("[%s SBase %s, m %s] No solution found", w, t, m)
+        logger.info(f"[{w} SBase {t}, m {m}] No solution found")
         return 0, 0, 0, None
 
 
@@ -132,8 +120,9 @@ def run_experiments(
 
     experiment_number = worker_id
     output_path = output_dir.format(seldonian_type)
-    outputFile = os.path.join(output_path, "results%d.npz" % experiment_number)
-    logger.info("Writing output to %s", outputFile)
+    os.makedirs(output_path, exist_ok=True)
+    outputFile = os.path.join(output_path, f"results{experiment_number}.npz")
+    logger.info(f"Writing output to {outputFile}")
 
     base_seed = (experiment_number * 99) + 1
     All = get_data(N, 5, 0.4, 0.4, 0.6, base_seed)
@@ -209,7 +198,7 @@ def run_experiments(
         LS_failures_g1=LS_failures_g1,
         LS_upper_bound=LS_upper_bound,
     )
-    logger.info("Saved the file %s", outputFile)
+    logger.info(f"Saved the file {outputFile}")
 
 
 if __name__ == "__main__":
@@ -224,15 +213,15 @@ if __name__ == "__main__":
 
     logger.info("Assuming the default: 50")
     nWorkers = 2
-    logger.info("Running experiments on %d threads", nWorkers)
+    logger.info(f"Running experiments on {nWorkers} threads")
     N = 10000
     ms = np.logspace(-2, 0, num=3)
-    logger.info("N %d, frac array: %s", N, ms)
-    logger.info("Running for: %s", sys.argv[1])
+    logger.info(f"N {N}, frac array: {ms}")
+    logger.info(f"Running for: {sys.argv[1]}")
     numM = len(ms)
     numTrials = 2
     mTest = 0.2
-    logger.info("Number of trials: %d", numTrials)
+    logger.info(f"Number of trials: {numTrials}")
 
     tic = timeit.default_timer()
     _ = ray.get(
@@ -245,6 +234,6 @@ if __name__ == "__main__":
     )
     toc = timeit.default_timer()
     time_parallel = toc - tic
-    logger.info("Time elapsed: %s", time_parallel)
+    logger.info(f"Time elapsed: {time_parallel}")
     time.sleep(2)
     ray.shutdown()

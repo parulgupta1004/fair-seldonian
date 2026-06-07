@@ -181,5 +181,5 @@ def eval_expr_tree_conf_interval(
 def inorder_ext(t_node):
     if t_node is not None:
         inorder_ext(t_node.left)
-        logger.debug("%s %s", t_node.value, t_node.delta)
+        logger.debug(f"{t_node.value} {t_node.delta}")
         inorder_ext(t_node.right)

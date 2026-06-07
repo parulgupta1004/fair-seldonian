@@ -18,6 +18,12 @@ def test_qsa():
     assert theta.shape[0] == 5 and theta1.shape[0] == 1 and isinstance(passed, bool)
 
 
+def test_qsa_returns_tuple():
+    Xt, Yt, Tt, _, _, _ = _split()
+    result = QSA(Xt, Yt, Tt, "base", None, None)
+    assert isinstance(result, tuple) and len(result) == 3
+
+
 def test_qsa_opt():
     Xt, Yt, Tt, _, _, _ = _split()
     theta, theta1, _ = QSA(Xt, Yt, Tt, "opt", None, None)

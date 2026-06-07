@@ -41,3 +41,15 @@ def test_replace():
     config = replace(DEFAULT_CONFIG, delta=0.01)
     assert config.delta == 0.01
     assert config.candidate_ratio == DEFAULT_CONFIG.candidate_ratio
+
+
+@pytest.mark.parametrize("delta", [0, 1, -0.1, 1.5])
+def test_invalid_delta_raises(delta):
+    with pytest.raises(ValueError):
+        SeldonianConfig(delta=delta)
+
+
+@pytest.mark.parametrize("ratio", [0, 1, -0.5, 2.0])
+def test_invalid_candidate_ratio_raises(ratio):
+    with pytest.raises(ValueError):
+        SeldonianConfig(candidate_ratio=ratio)
