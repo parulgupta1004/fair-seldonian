@@ -597,6 +597,7 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
+    { name = "coverage" },
     { name = "pytest" },
     { name = "pytest-cov" },
 ]
@@ -624,15 +625,21 @@ docs = [
 
 [package.metadata]
 requires-dist = [
+    { name = "coverage", marker = "extra == 'dev'", specifier = ">=7.6.1" },
     { name = "matplotlib", marker = "extra == 'plots'" },
-    { name = "numpy", specifier = ">=1.23" },
-    { name = "pandas", specifier = ">=1.5" },
+    { name = "numpy", marker = "python_full_version < '3.14'", specifier = ">=1.23" },
+    { name = "numpy", marker = "python_full_version >= '3.14'", specifier = ">=2.3.2" },
+    { name = "pandas", marker = "python_full_version < '3.14'", specifier = ">=1.5" },
+    { name = "pandas", marker = "python_full_version >= '3.14'", specifier = ">=2.3.3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
     { name = "ray", marker = "extra == 'experiments'" },
-    { name = "scikit-learn", specifier = ">=1.2" },
-    { name = "scipy", specifier = ">=1.10" },
-    { name = "torch", specifier = ">=2.0" },
+    { name = "scikit-learn", marker = "python_full_version < '3.14'", specifier = ">=1.2" },
+    { name = "scikit-learn", marker = "python_full_version >= '3.14'", specifier = ">=1.8.0" },
+    { name = "scipy", marker = "python_full_version < '3.14'", specifier = ">=1.10" },
+    { name = "scipy", marker = "python_full_version >= '3.14'", specifier = ">=1.16.1" },
+    { name = "torch", marker = "python_full_version < '3.14'", specifier = ">=2.0" },
+    { name = "torch", marker = "python_full_version >= '3.14'", specifier = ">=2.9.0" },
 ]
 provides-extras = ["dev", "experiments", "plots"]
 
