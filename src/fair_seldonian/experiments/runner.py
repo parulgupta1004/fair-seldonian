@@ -56,6 +56,8 @@ def store_result(
         logger.info(f"[{worker} SBase {trial_label}, m {m}] No solution found")
         return 0, 0, 0, None
 
+    # Only scalars are needed below; detach so float() doesn't warn / retain the graph.
+    theta, theta1 = theta.detach(), theta1.detach()
     true_log_loss = float(-f_hat(theta, theta1, test_x, test_y))
     upper_bound = float(
         eval_ghat(theta, theta1, test_x, test_y, test_t, seldonian_type, config)
