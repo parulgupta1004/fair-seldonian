@@ -21,6 +21,9 @@ exp/
 # Logs
 *.log
 
+# Jupyter
+.ipynb_checkpoints/
+
 # IDE
 .idea/
 .vscode/

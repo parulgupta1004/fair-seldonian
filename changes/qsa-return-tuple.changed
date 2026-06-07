@@ -1,0 +1,1 @@
+`QSA` now returns a tuple `(theta, theta1, passed)` instead of a list.

@@ -4,14 +4,14 @@ import numpy as np
 from .results import gather_results
 
 
-def load_and_plot_results(file_name, ylabel, output_file, is_yAxis_prob, legend_loc):
+def load_and_plot_results(file_name, ylabel, output_file, is_y_axis_prob, legend_loc):
     """
     Plot results from CSV files and store the final graph.
 
     :param file_name: The csv file path from where the data is imported
     :param ylabel: The lable on the Y-axis of the graph
     :param output_file: The path where the graph image must be stored
-    :param is_yAxis_prob: Bool of whether the Y-axis is probabity value or not
+    :param is_y_axis_prob: Bool of whether the Y-axis is probability value or not
     :param legend_loc: The location of the legend
     """
     file_ms, file_QSA, file_QSA_stderror, file_LS, file_LS_stderror = np.loadtxt(
@@ -26,7 +26,7 @@ def load_and_plot_results(file_name, ylabel, output_file, is_yAxis_prob, legend_
     plt.xticks(fontsize=12)
     plt.ylabel(ylabel, fontsize=16)
 
-    if is_yAxis_prob:
+    if is_y_axis_prob:
         plt.ylim(-0.1, 1.1)
 
     plt.plot(file_ms, file_QSA, "b-", linewidth=3, label="QSA")

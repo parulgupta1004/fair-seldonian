@@ -25,7 +25,7 @@ def eval_abs_bound(l_x, u_x):
     :return: lower and upper bound of abs operation
     """
     if l_x is not None and u_x is not None:
-        if l_x == math.inf or u_x == math.inf or l_x == -math.inf or u_x == math.inf:
+        if l_x == math.inf or u_x == math.inf or l_x == -math.inf or u_x == -math.inf:
             return 0, math.inf
         elif l_x <= 0 and u_x <= 0:
             return -u_x, -l_x

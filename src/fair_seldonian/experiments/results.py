@@ -23,7 +23,7 @@ def get_existing_experiment_numbers(bin_path=DEFAULT_BIN_PATH):
 
 
 def gen_filename(n, bin_path=DEFAULT_BIN_PATH):
-    return os.path.join(bin_path, "results%d.npz" % n)
+    return os.path.join(bin_path, f"results{n}.npz")
 
 
 def add_more_results(
@@ -96,13 +96,16 @@ def add_more_results(
 
 def stderror(v):
     non_nan = np.count_nonzero(~np.isnan(v))
+    if non_nan < 2:
+        return float("nan")
     return np.nanstd(v, ddof=1) / np.sqrt(non_nan)
 
 
 def save_to_csv(ms, results_qsa, results_ls, filename):
     n_cols = results_qsa.shape[1]
 
-    with open(filename, mode="w") as file:
+    os.makedirs(os.path.dirname(filename) or ".", exist_ok=True)
+    with open(filename, mode="w", newline="") as file:
         writer = csv.writer(file, delimiter=",")
 
         for col in range(n_cols):

@@ -43,16 +43,15 @@ def QSA(X, Y, T, seldonian_type, init_sol, init_sol1, config=DEFAULT_CONFIG):
         init_sol1,
         config,
     )
-    logger.debug(
-        "Actual cand sol upperbound: %s",
-        eval_ghat(
+    if logger.isEnabledFor(logging.DEBUG):
+        cand_upper_bound = eval_ghat(
             theta, theta1, cand_data_X, cand_data_Y, cand_data_T, seldonian_type, config
-        ),
-    )
+        )
+        logger.debug(f"Actual cand sol upperbound: {cand_upper_bound}")
     passed_safety = safety_test(
         theta, theta1, safe_data_X, safe_data_Y, safe_data_T, seldonian_type, config
     )
-    return [theta, theta1, passed_safety]
+    return theta, theta1, passed_safety
 
 
 def safety_test(
@@ -79,7 +78,7 @@ def safety_test(
     upper_bound = eval_ghat(
         theta, theta1, safe_data_X, safe_data_Y, safe_data_T, seldonian_type, config
     )
-    logger.debug("Safety test upperbound: %s", upper_bound)
+    logger.debug(f"Safety test upperbound: {upper_bound}")
     if upper_bound > 0.0:
         return False
     return True
@@ -108,9 +107,8 @@ def get_cand_solution(
     """
     if init_sol is None:
         init_sol, init_sol1 = simple_logistic(cand_data_X, cand_data_Y)
-    logger.debug(
-        "Initial LS upperbound: ",
-        eval_ghat(
+    if logger.isEnabledFor(logging.DEBUG):
+        init_upper_bound = eval_ghat(
             init_sol,
             init_sol1,
             cand_data_X,
@@ -118,8 +116,8 @@ def get_cand_solution(
             cand_data_T,
             seldonian_type,
             config,
-        ),
-    )
+        )
+        logger.debug(f"Initial LS upperbound: {init_upper_bound}")
     theta = init_sol.detach().numpy()
     theta1 = init_sol1.detach().numpy()
     init_theta = np.concatenate((theta, theta1))
@@ -168,93 +166,4 @@ def cand_obj(theta, cand_data_X, cand_data_Y, cand_data_T, seldonian_type, confi
 
     if upper_bound > 0.0:
         result = -10000.0 - upper_bound
-    return float(-result)
-
-
-def _get_cand_solution2(
-    cand_data_X, cand_data_Y, cand_data_T, seldonian_type, config=DEFAULT_CONFIG
-):
-    init_sol, init_sol1 = simple_logistic(cand_data_X, cand_data_Y)
-    init_fhat = f_hat(init_sol, init_sol1, cand_data_X, cand_data_Y)
-    init_ghat = eval_ghat(
-        init_sol,
-        init_sol1,
-        cand_data_X,
-        cand_data_Y,
-        cand_data_T,
-        seldonian_type,
-        config,
-    )
-    init_fhat.backward()
-    assert init_sol.grad is not None and init_sol1.grad is not None
-    numerator = init_sol.grad + init_sol1.grad
-    init_ghat.backward()
-    assert init_sol.grad is not None and init_sol1.grad is not None
-    denominator = init_sol.grad + init_sol1.grad
-    lambda_value = -numerator / denominator
-    fin_lambda = None
-    for i in range(len(init_sol + 1)):
-        if lambda_value[i] > 0:
-            fin_lambda = float(lambda_value[i])
-            break
-    if not fin_lambda:
-        fin_lambda = 1
-    logger.debug(
-        "Initial LS upperbound: %s",
-        eval_ghat(
-            init_sol,
-            init_sol1,
-            cand_data_X,
-            cand_data_Y,
-            cand_data_T,
-            seldonian_type,
-            config,
-        ),
-    )
-    theta = init_sol.detach().numpy()
-    theta1 = init_sol1.detach().numpy()
-    init_theta = np.concatenate((theta, theta1))
-    res = minimize(
-        _cand_obj2,
-        x0=init_theta,
-        method="BFGS",
-        options={"disp": False, "maxiter": 12000},
-        args=(
-            cand_data_X,
-            cand_data_Y,
-            cand_data_T,
-            seldonian_type,
-            fin_lambda,
-            config,
-        ),
-    )
-    theta_numpy = res.x[:-1]
-    theta1_numpy = res.x[-1]
-    theta0 = torch.tensor(theta_numpy)
-    theta1 = torch.tensor(np.array([theta1_numpy]))
-    return theta0, theta1
-
-
-def _cand_obj2(
-    theta,
-    cand_data_X,
-    cand_data_Y,
-    cand_data_T,
-    seldonian_type,
-    lambda_value,
-    config,
-):
-    theta_numpy = theta[:-1]
-    theta1_numpy = theta[-1]
-    theta0 = torch.tensor(theta_numpy)
-    theta1 = torch.tensor(np.array([theta1_numpy]))
-
-    result = f_hat(theta0, theta1, cand_data_X, cand_data_Y)
-    upper_bound = eval_ghat(
-        theta0, theta1, cand_data_X, cand_data_Y, cand_data_T, seldonian_type, config
-    )
-    if upper_bound > 0:
-        result = float(-1000 - (lambda_value * upper_bound))
-    else:
-        result = float(-result - (lambda_value * upper_bound))
     return float(-result)

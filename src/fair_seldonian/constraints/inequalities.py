@@ -59,7 +59,7 @@ def eval_estimate(element, Y, predicted_Y, T):
         mask = torch.mul(torch.tensor(type_mask), torch.tensor(label_mask))
         probs = predicted_Y[mask]
         return torch.div(torch.sum(torch.sub(1, probs)), num_of_A)
-    return None
+    raise ValueError(f"Unknown constraint variable: {element!r}")
 
 
 def eval_func_bound(
@@ -95,6 +95,7 @@ def eval_func_bound(
                 estimate, candidate_safety_ratio * num_of_elements, delta
             )
         return eval_hoeffding(estimate, num_of_elements, delta)
+    raise ValueError(f"Unknown inequality: {inequality!r}")
 
 
 ####################
@@ -142,7 +143,7 @@ def get_variance(element, estimate, predicted_Y, T, num_of_elements):
     type_attribute = element[3:-1]
     type_Y = predicted_Y[T.astype(str) == type_attribute]
     sum_term = (type_Y - estimate) ** 2
-    return math.sqrt(float(sum_term.sum()) / (num_of_elements - 1))
+    return math.sqrt(float(sum_term.sum().detach()) / (num_of_elements - 1))
 
 
 def eval_t_test(estimate, variance, num_of_elements, delta):

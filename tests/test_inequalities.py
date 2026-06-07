@@ -1,7 +1,9 @@
+import pytest
 import torch
 
 from fair_seldonian.constraints.inequalities import (
     eval_estimate,
+    eval_func_bound,
     eval_hoeffding,
     eval_t_test,
     get_num_of_elements,
@@ -62,3 +64,15 @@ def test_variance_nonneg():
     est = eval_estimate("TP(1)", Y, pred, T)
     n = get_num_of_elements("TP(1)", Y)
     assert get_variance("TP(1)", est, pred, T, n) >= 0
+
+
+def test_estimate_unknown_variable_raises():
+    Y, pred, T = _data()
+    with pytest.raises(ValueError):
+        eval_estimate("XX(1)", Y, pred, T)
+
+
+def test_func_bound_unknown_inequality_raises():
+    Y, pred, T = _data()
+    with pytest.raises(ValueError):
+        eval_func_bound("TP(1)", Y, pred, T, 0.05, "bogus", None, False, False)
