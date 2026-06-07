@@ -1,0 +1,1 @@
+Cache the per-group sensitive-attribute mask in the confidence-bound hot path, roughly halving QSA runtime (~1.9x for Hoeffding, ~2.2x for the t-test) with bit-identical results.

@@ -4,6 +4,27 @@ from enum import Enum
 import torch
 from scipy import stats
 
+# `T.astype(str) == group` dominates the confidence-bound hot path: the optimizer
+# evaluates the constraint thousands of times while T never changes. Memoize the
+# group mask per (T, group). Keyed by object identity and guarded with `is`, so a
+# recycled id can never return a stale mask; T is treated as immutable here. The
+# cache is bounded and cleared wholesale to cap retained references.
+_GROUP_MASK_CACHE = {}
+_GROUP_MASK_CACHE_MAX = 32
+
+
+def group_mask(T, group):
+    """Boolean mask of rows whose sensitive attribute equals ``group`` (cached)."""
+    key = (id(T), group)
+    cached = _GROUP_MASK_CACHE.get(key)
+    if cached is not None and cached[0] is T:
+        return cached[1]
+    mask = T.astype(str) == group
+    if len(_GROUP_MASK_CACHE) >= _GROUP_MASK_CACHE_MAX:
+        _GROUP_MASK_CACHE.clear()
+    _GROUP_MASK_CACHE[key] = (T, mask)
+    return mask
+
 
 def eval_estimate(element, Y, predicted_Y, T):
     r"""
@@ -28,7 +49,7 @@ def eval_estimate(element, Y, predicted_Y, T):
     type_attribute = element[3:-1]
     # filter predict_Y to get values where T=type_attribute and then, Y=1/0
     # average it all and return.
-    type_mask = T.astype(str) == type_attribute
+    type_mask = group_mask(T, type_attribute)
     Y_A = Y[type_mask]
     num_of_A = len(Y_A)
     if element.startswith("TP"):
@@ -141,7 +162,7 @@ def predict_hoeffding_modified(estimate, num_of_elements, safety_size, delta):
 def get_variance(element, estimate, predicted_Y, T, num_of_elements):
     # element will be of the form FP(A) or FN(A) or TP(A) or TN(A)
     type_attribute = element[3:-1]
-    type_Y = predicted_Y[T.astype(str) == type_attribute]
+    type_Y = predicted_Y[group_mask(T, type_attribute)]
     sum_term = (type_Y - estimate) ** 2
     return math.sqrt(float(sum_term.sum().detach()) / (num_of_elements - 1))
 
