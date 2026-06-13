@@ -119,7 +119,7 @@ def run_experiments(
     logger.info(f"Writing output to {output_file}")
 
     base_seed = (experiment_number * 99) + 1
-    All = get_data(N, 5, 0.4, 0.4, 0.6, base_seed)
+    all_data = get_data(N, 5, 0.4, 0.4, 0.6, base_seed)
     init_sol, init_sol1 = None, None
 
     for trial in range(num_trials):
@@ -127,7 +127,7 @@ def run_experiments(
             base_seed = (experiment_number * num_trials) + 1
             random_state = base_seed + trial
             test_x, test_y, test_t, train_x, train_y, train_t = data_split(
-                m, All, random_state, m_test
+                m, all_data, random_state, m_test
             )
 
             theta, theta1 = simple_logistic(train_x, train_y)

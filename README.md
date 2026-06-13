@@ -55,7 +55,7 @@ from fair_seldonian.data import get_data, data_split
 data = get_data(N=10000, features=5, t_ratio=0.4,
                 tp0_ratio=0.4, tp1_ratio=0.6, random_seed=42)
 X_te, Y_te, T_te, X_tr, Y_tr, T_tr = data_split(
-    frac=0.5, All=data, random_state=1, mTest=0.2)
+    frac=0.5, all_data=data, random_state=1, m_test=0.2)
 
 theta, theta1, passed = QSA(X_tr, Y_tr, T_tr, "opt", None, None)
 

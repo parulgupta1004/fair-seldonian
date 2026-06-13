@@ -14,6 +14,8 @@ def test_data_split():
     data = get_data(
         N=200, features=5, t_ratio=0.5, tp0_ratio=0.4, tp1_ratio=0.6, random_seed=42
     )
-    Xe, Ye, Te, Xt, Yt, Tt = data_split(frac=0.5, All=data, random_state=1, mTest=0.2)
+    Xe, Ye, Te, Xt, Yt, Tt = data_split(
+        frac=0.5, all_data=data, random_state=1, m_test=0.2
+    )
     assert len(Xe) > 0 and len(Xt) > 0
     assert len(Ye) == len(Xe) and len(Yt) == len(Xt)

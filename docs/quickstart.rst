@@ -103,7 +103,7 @@ The framework can also be used programmatically:
 
    # Split into train and test sets (80/20)
    X_test, Y_test, T_test, X_train, Y_train, T_train = data_split(
-       frac=0.5, All=data, random_state=1, mTest=0.2)
+       frac=0.5, all_data=data, random_state=1, m_test=0.2)
 
    # Run the Quasi-Seldonian Algorithm with all optimizations
    theta, theta1, passed = QSA(
