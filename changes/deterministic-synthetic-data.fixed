@@ -1,0 +1,1 @@
+Make `get_data` fully reproducible: the noise feature columns were drawn from NumPy's unseeded global RNG, so synthetic datasets (and therefore QSA certification outcomes) varied across runs. They now use a generator seeded from `random_seed`.

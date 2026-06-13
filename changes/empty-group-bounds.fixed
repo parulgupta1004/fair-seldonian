@@ -1,0 +1,1 @@
+Fail closed instead of dividing by zero when a sensitive group or label cell is empty: the confidence bound now returns an infinite-width interval (so the safety test correctly fails) and the point estimate returns 0 rather than propagating NaN.

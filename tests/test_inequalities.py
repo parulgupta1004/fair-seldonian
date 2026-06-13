@@ -1,7 +1,11 @@
+import math
+
+import pandas as pd
 import pytest
 import torch
 
 from fair_seldonian.constraints.inequalities import (
+    Inequality,
     eval_estimate,
     eval_func_bound,
     eval_hoeffding,
@@ -76,3 +80,41 @@ def test_func_bound_unknown_inequality_raises():
     Y, pred, T = _data()
     with pytest.raises(ValueError):
         eval_func_bound("TP(1)", Y, pred, T, 0.05, "bogus", None, False, False)
+
+
+def test_num_of_elements_unknown_variable_raises():
+    Y, _, _ = _data()
+    with pytest.raises(ValueError):
+        get_num_of_elements("XX(1)", Y)
+
+
+def test_estimate_empty_group_returns_zero_not_nan():
+    # No rows belong to group "1": the rate is undefined but must not be NaN.
+    Y = pd.Series([1, 0, 1, 0])
+    T = pd.Series([0, 0, 0, 0])
+    pred = torch.tensor([0.9, 0.1, 0.8, 0.2], dtype=torch.float64)
+    est = float(eval_estimate("TP(1)", Y, pred, T))
+    assert est == 0.0 and not math.isnan(est)
+
+
+def test_func_bound_empty_group_fails_closed():
+    # Empty group -> widest interval so the safety test fails closed (no div-by-zero).
+    Y = pd.Series([1, 0, 1, 0])
+    T = pd.Series([0, 0, 0, 0])
+    pred = torch.tensor([0.9, 0.1, 0.8, 0.2], dtype=torch.float64)
+    for inequality in (Inequality.HOEFFDING_INEQUALITY, Inequality.T_TEST):
+        lo, hi = eval_func_bound(
+            "TP(1)", Y, pred, T, 0.05, inequality, None, False, False
+        )
+        assert lo == -math.inf and hi == math.inf
+
+
+def test_func_bound_single_sample_ttest_fails_closed():
+    # Only one positive label -> t-test cannot form an interval (df=0); fail closed.
+    Y = pd.Series([1, 0, 0, 0])
+    T = pd.Series([1, 1, 1, 1])
+    pred = torch.tensor([0.9, 0.1, 0.2, 0.3], dtype=torch.float64)
+    lo, hi = eval_func_bound(
+        "TP(1)", Y, pred, T, 0.05, Inequality.T_TEST, None, False, False
+    )
+    assert lo == -math.inf and hi == math.inf

@@ -36,7 +36,9 @@ def get_data(N, features, t_ratio, tp0_ratio, tp1_ratio, random_seed):
             k += 1
 
     T = pd.Series(T)
-    extra_features = np.random.rand(int(N), features - 2)
+    # Use a seeded generator (not the global np.random) so the noise feature
+    # columns are reproducible; otherwise get_data is nondeterministic across runs.
+    extra_features = np.random.default_rng(random_state).random((int(N), features - 2))
     X = pd.concat([pd.DataFrame(X), pd.DataFrame(extra_features), T], axis=1)
     Y = pd.Series(Y)
     return pd.concat([X, Y, T], axis=1)

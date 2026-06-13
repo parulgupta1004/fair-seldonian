@@ -52,6 +52,12 @@ def eval_estimate(element, Y, predicted_Y, T):
     type_mask = group_mask(T, type_attribute)
     Y_A = Y[type_mask]
     num_of_A = len(Y_A)
+    if num_of_A == 0:
+        # No samples in this group: the rate is undefined. Return 0 rather than
+        # dividing by zero (which would yield NaN and silently corrupt downstream
+        # arithmetic). The confidence-bound path guards this case separately and
+        # fails closed; see eval_func_bound.
+        return torch.tensor(0.0)
     if element.startswith("TP"):
         # filter predict_Y where Y=1
         # Predicted_y = 1 and Y=1
@@ -94,8 +100,17 @@ def eval_func_bound(
     predict_bound,
     modified_h,
 ):
-    estimate = eval_estimate(element, Y, predicted_Y, T)
     num_of_elements = get_num_of_elements(element, Y)
+    num_in_group = int(group_mask(T, element[3:-1]).sum())
+    # When the group is empty or there are too few label-matched samples to form
+    # an interval, the estimate and its confidence bound are undefined. Return the
+    # widest possible interval so the constraint's upper bound becomes +inf and the
+    # safety test fails closed, instead of dividing by zero (Hoeffding/variance) or
+    # silently propagating NaN through the bound and wrongly passing safety.
+    min_required = 2 if inequality == Inequality.T_TEST else 1
+    if num_in_group == 0 or num_of_elements < min_required:
+        return -math.inf, math.inf
+    estimate = eval_estimate(element, Y, predicted_Y, T)
     if inequality == Inequality.T_TEST:
         variance = get_variance(element, estimate, predicted_Y, T, num_of_elements)
         if predict_bound:
@@ -139,6 +154,7 @@ def get_num_of_elements(element, Y):
     elif element.startswith("TN") or element.startswith("FP"):
         # filter Y=0
         return len(Y[Y == 0])
+    raise ValueError(f"Unknown constraint variable: {element!r}")
 
 
 def eval_hoeffding(estimate, num_of_elements, delta):
