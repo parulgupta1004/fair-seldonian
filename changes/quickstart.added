@@ -1,1 +1,0 @@
-Added an end-to-end `examples/quickstart.ipynb` walkthrough and a `notebook` install extra (`pip install fair-seldonian[notebook]`).

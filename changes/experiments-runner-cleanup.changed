@@ -1,1 +1,0 @@
-Cleaned up the experiments runner: snake_case naming throughout, a clear `is_baseline` flag in `store_result` (replacing the overloaded `ls_dumb`), and removed the redundant `numM` parameter from `run_experiments` (now derived from `ms`).
