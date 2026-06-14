@@ -1,14 +1,24 @@
+from __future__ import annotations
+
 from random import random, seed
+from typing import cast
 
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
 
-def get_data(N, features, t_ratio, tp0_ratio, tp1_ratio, random_seed):
+def get_data(
+    N: int,
+    features: int,
+    t_ratio: float,
+    tp0_ratio: float,
+    tp1_ratio: float,
+    random_seed: float,
+) -> pd.DataFrame:
     random_state = int(random_seed * 99) + 1
     seed(random_state)
-    T = np.random.default_rng(random_state).binomial(1, t_ratio, int(N))
+    T = np.random.default_rng(random_state).binomial(1, t_ratio, N)
     A = np.zeros(T.shape)
     Y = np.zeros(T.shape)
     X = np.zeros(T.shape)
@@ -38,15 +48,20 @@ def get_data(N, features, t_ratio, tp0_ratio, tp1_ratio, random_seed):
     T = pd.Series(T)
     # Use a seeded generator (not the global np.random) so the noise feature
     # columns are reproducible; otherwise get_data is nondeterministic across runs.
-    extra_features = np.random.default_rng(random_state).random((int(N), features - 2))
+    extra_features = np.random.default_rng(random_state).random((N, features - 2))
     X = pd.concat([pd.DataFrame(X), pd.DataFrame(extra_features), T], axis=1)
     Y = pd.Series(Y)
     return pd.concat([X, Y, T], axis=1)
 
 
-def data_split(frac, all_data, random_state, m_test):
-    all_train, all_test, Y_train, Y_test = train_test_split(
-        all_data, all_data.iloc[:, -2], test_size=m_test, random_state=42
+def data_split(
+    frac: float, all_data: pd.DataFrame, random_state: int, m_test: float
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    all_train, all_test, Y_train, Y_test = cast(
+        "tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]",
+        train_test_split(
+            all_data, all_data.iloc[:, -2], test_size=m_test, random_state=42
+        ),
     )
     # test dataset
     T_test = all_test.iloc[:, -1]

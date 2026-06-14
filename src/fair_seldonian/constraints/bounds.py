@@ -1,7 +1,19 @@
+from __future__ import annotations
+
 import math
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .._typing import Bound
 
 
-def eval_math_bound(l_x, u_x, l_y=None, u_y=None, operator=None):
+def eval_math_bound(
+    l_x: Bound | None,
+    u_x: Bound | None,
+    l_y: Bound | None = None,
+    u_y: Bound | None = None,
+    operator: str | None = None,
+) -> tuple[Bound | None, Bound | None]:
     if operator == "+":
         return eval_add_bound(l_x, u_x, l_y, u_y)
     elif operator == "-":
@@ -18,7 +30,9 @@ def eval_math_bound(l_x, u_x, l_y=None, u_y=None, operator=None):
     return None, None
 
 
-def eval_abs_bound(l_x, u_x):
+def eval_abs_bound(
+    l_x: Bound | None, u_x: Bound | None
+) -> tuple[Bound | None, Bound | None]:
     """
     :param l_x: lower bound
     :param u_x: upper bound
@@ -36,7 +50,9 @@ def eval_abs_bound(l_x, u_x):
     return None, None
 
 
-def eval_div_bound(l_x, u_x, l_y, u_y):
+def eval_div_bound(
+    l_x: Bound | None, u_x: Bound | None, l_y: Bound | None, u_y: Bound | None
+) -> tuple[Bound | None, Bound | None]:
     """
     :param l_x: lower bound of left child
     :param u_x: upper bound of left child
@@ -118,7 +134,9 @@ def eval_div_bound(l_x, u_x, l_y, u_y):
     return None, None
 
 
-def eval_multiply_bound(l_x, u_x, l_y, u_y):
+def eval_multiply_bound(
+    l_x: Bound | None, u_x: Bound | None, l_y: Bound | None, u_y: Bound | None
+) -> tuple[Bound | None, Bound | None]:
     """
     :param l_x: lower bound of left child
     :param u_x: upper bound of left child
@@ -211,7 +229,9 @@ def eval_multiply_bound(l_x, u_x, l_y, u_y):
     return None, None
 
 
-def eval_subtract_bound(l_x, u_x, l_y, u_y):
+def eval_subtract_bound(
+    l_x: Bound | None, u_x: Bound | None, l_y: Bound | None, u_y: Bound | None
+) -> tuple[Bound | None, Bound | None]:
     """
     :param l_x: lower bound of left child
     :param u_x: upper bound of left child
@@ -235,7 +255,9 @@ def eval_subtract_bound(l_x, u_x, l_y, u_y):
     return None, None
 
 
-def eval_add_bound(l_x, u_x, l_y, u_y):
+def eval_add_bound(
+    l_x: Bound | None, u_x: Bound | None, l_y: Bound | None, u_y: Bound | None
+) -> tuple[Bound | None, Bound | None]:
     """
     :param l_x: lower bound of left child
     :param u_x: upper bound of left child

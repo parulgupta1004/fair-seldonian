@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import csv
 import glob
 import logging
@@ -12,7 +14,7 @@ DEFAULT_BIN_PATH = "exp/lag_exp/bin/"
 DEFAULT_CSV_PATH = "exp/lag_exp/csv/"
 
 
-def get_existing_experiment_numbers(bin_path=DEFAULT_BIN_PATH):
+def get_existing_experiment_numbers(bin_path: str = DEFAULT_BIN_PATH) -> list[int]:
     result_files = glob.glob(os.path.join(bin_path, "results*.npz"))
     matches = [
         re.search(".*results([0-9]*).*", fn, re.IGNORECASE) for fn in result_files
@@ -22,23 +24,23 @@ def get_existing_experiment_numbers(bin_path=DEFAULT_BIN_PATH):
     return experiment_numbers
 
 
-def gen_filename(n, bin_path=DEFAULT_BIN_PATH):
+def gen_filename(n: int, bin_path: str = DEFAULT_BIN_PATH) -> str:
     return os.path.join(bin_path, f"results{n}.npz")
 
 
 def add_more_results(
-    new_file_id,
-    ms,
-    seldonian_solutions_found,
-    seldonian_fs,
-    seldonian_failures_g1,
-    seldonian_upper_bound,
-    LS_solutions_found,
-    LS_fs,
-    LS_failures_g1,
-    LS_upper_bound,
-    bin_path=DEFAULT_BIN_PATH,
-):
+    new_file_id: int,
+    ms: np.ndarray | None,
+    seldonian_solutions_found: np.ndarray | None,
+    seldonian_fs: np.ndarray | None,
+    seldonian_failures_g1: np.ndarray | None,
+    seldonian_upper_bound: np.ndarray | None,
+    LS_solutions_found: np.ndarray | None,
+    LS_fs: np.ndarray | None,
+    LS_failures_g1: np.ndarray | None,
+    LS_upper_bound: np.ndarray | None,
+    bin_path: str = DEFAULT_BIN_PATH,
+) -> list[np.ndarray]:
     new_file = np.load(gen_filename(new_file_id, bin_path))
     new_ms = new_file["ms"]
 
@@ -65,6 +67,17 @@ def add_more_results(
             new_LS_upper_bound,
         ]
     else:
+        # Once ms is populated the accumulators are too (set together below).
+        assert (
+            seldonian_solutions_found is not None
+            and seldonian_fs is not None
+            and seldonian_failures_g1 is not None
+            and seldonian_upper_bound is not None
+            and LS_solutions_found is not None
+            and LS_fs is not None
+            and LS_failures_g1 is not None
+            and LS_upper_bound is not None
+        )
         seldonian_solutions_found = np.vstack(
             [seldonian_solutions_found, new_seldonian_solutions_found]
         )
@@ -94,14 +107,16 @@ def add_more_results(
         ]
 
 
-def stderror(v):
+def stderror(v: np.ndarray) -> float:
     non_nan = np.count_nonzero(~np.isnan(v))
     if non_nan < 2:
         return float("nan")
-    return np.nanstd(v, ddof=1) / np.sqrt(non_nan)
+    return float(np.nanstd(v, ddof=1) / np.sqrt(non_nan))
 
 
-def save_to_csv(ms, results_qsa, results_ls, filename):
+def save_to_csv(
+    ms: np.ndarray, results_qsa: np.ndarray, results_ls: np.ndarray, filename: str
+) -> None:
     n_cols = results_qsa.shape[1]
 
     os.makedirs(os.path.dirname(filename) or ".", exist_ok=True)
@@ -129,16 +144,18 @@ def save_to_csv(ms, results_qsa, results_ls, filename):
             )
 
 
-def gather_results(bin_path=DEFAULT_BIN_PATH, csv_path=DEFAULT_CSV_PATH):
-    ms = None
-    seldonian_solutions_found = None
-    seldonian_fs = None
-    seldonian_failures_g1 = None
-    seldonian_upper_bound = None
-    LS_solutions_found = None
-    LS_fs = None
-    LS_failures_g1 = None
-    LS_upper_bound = None
+def gather_results(
+    bin_path: str = DEFAULT_BIN_PATH, csv_path: str = DEFAULT_CSV_PATH
+) -> None:
+    ms: np.ndarray | None = None
+    seldonian_solutions_found: np.ndarray | None = None
+    seldonian_fs: np.ndarray | None = None
+    seldonian_failures_g1: np.ndarray | None = None
+    seldonian_upper_bound: np.ndarray | None = None
+    LS_solutions_found: np.ndarray | None = None
+    LS_fs: np.ndarray | None = None
+    LS_failures_g1: np.ndarray | None = None
+    LS_upper_bound: np.ndarray | None = None
 
     experiment_numbers = get_existing_experiment_numbers(bin_path)
 
@@ -171,6 +188,16 @@ def gather_results(bin_path=DEFAULT_BIN_PATH, csv_path=DEFAULT_CSV_PATH):
     if ms is None or seldonian_fs is None or LS_fs is None:
         logger.warning("No experiment results found.")
         return
+
+    # If results were gathered, every accumulator was populated together.
+    assert (
+        seldonian_solutions_found is not None
+        and seldonian_failures_g1 is not None
+        and seldonian_upper_bound is not None
+        and LS_solutions_found is not None
+        and LS_failures_g1 is not None
+        and LS_upper_bound is not None
+    )
 
     save_to_csv(ms, -seldonian_fs, -LS_fs, os.path.join(csv_path, "fs.csv"))
     save_to_csv(

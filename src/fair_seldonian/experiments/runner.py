@@ -1,15 +1,21 @@
+from __future__ import annotations
+
 import logging
 import os
 import sys
 import time
 import timeit
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from ..algorithms.qsa import QSA
-from ..config import DEFAULT_CONFIG
+from ..config import DEFAULT_CONFIG, SeldonianConfig
 from ..data.synthetic import data_split, get_data
 from ..models.logistic_regression import eval_ghat, f_hat, simple_logistic
+
+if TYPE_CHECKING:
+    import torch
 
 logger = logging.getLogger(__name__)
 
@@ -17,21 +23,21 @@ DEFAULT_OUTPUT_DIR = "exp/exp_{}/bin/"
 
 
 def store_result(
-    theta,
-    theta1,
-    test_x,
-    test_y,
-    test_t,
-    passed_safety_test,
-    worker_id,
-    n_workers,
-    m,
-    trial,
-    num_trials,
-    seldonian_type,
-    is_baseline,
-    config=DEFAULT_CONFIG,
-):
+    theta: torch.Tensor,
+    theta1: torch.Tensor,
+    test_x: np.ndarray,
+    test_y: np.ndarray,
+    test_t: np.ndarray,
+    passed_safety_test: bool,
+    worker_id: int,
+    n_workers: int,
+    m: float,
+    trial: int,
+    num_trials: int,
+    seldonian_type: str,
+    is_baseline: bool,
+    config: SeldonianConfig = DEFAULT_CONFIG,
+) -> tuple[int, int, float, float | None]:
     """
     Print and store the resultant information in a file.
 
@@ -79,16 +85,16 @@ def store_result(
 
 
 def run_experiments(
-    worker_id,
-    n_workers,
-    ms,
-    num_trials,
-    m_test,
-    N,
-    seldonian_type,
-    config=DEFAULT_CONFIG,
-    output_dir=DEFAULT_OUTPUT_DIR,
-):
+    worker_id: int,
+    n_workers: int,
+    ms: np.ndarray,
+    num_trials: int,
+    m_test: float,
+    N: int,
+    seldonian_type: str,
+    config: SeldonianConfig = DEFAULT_CONFIG,
+    output_dir: str = DEFAULT_OUTPUT_DIR,
+) -> None:
     """
     Main function that runs the experiment.
 
@@ -120,7 +126,8 @@ def run_experiments(
 
     base_seed = (experiment_number * 99) + 1
     all_data = get_data(N, 5, 0.4, 0.4, 0.6, base_seed)
-    init_sol, init_sol1 = None, None
+    init_sol: torch.Tensor | None = None
+    init_sol1: torch.Tensor | None = None
 
     for trial in range(num_trials):
         for m_index, m in enumerate(ms):

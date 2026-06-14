@@ -1,10 +1,18 @@
+from __future__ import annotations
+
 import matplotlib.pyplot as plt  # pyrefly: ignore
 import numpy as np
 
 from .results import gather_results
 
 
-def load_and_plot_results(file_name, ylabel, output_file, is_y_axis_prob, legend_loc):
+def load_and_plot_results(
+    file_name: str,
+    ylabel: str,
+    output_file: str,
+    is_y_axis_prob: bool,
+    legend_loc: str,
+) -> None:
     """
     Plot results from CSV files and store the final graph.
 

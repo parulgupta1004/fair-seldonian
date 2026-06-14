@@ -1,17 +1,28 @@
+from __future__ import annotations
+
 import logging
+from typing import cast
 
 import numpy as np
 import torch
 from scipy.optimize import minimize
 from sklearn.model_selection import train_test_split
 
-from ..config import DEFAULT_CONFIG
+from ..config import DEFAULT_CONFIG, SeldonianConfig
 from ..models.logistic_regression import eval_ghat, f_hat, ghat, simple_logistic
 
 logger = logging.getLogger(__name__)
 
 
-def QSA(X, Y, T, seldonian_type, init_sol, init_sol1, config=DEFAULT_CONFIG):
+def QSA(
+    X: np.ndarray,
+    Y: np.ndarray,
+    T: np.ndarray,
+    seldonian_type: str,
+    init_sol: torch.Tensor | None,
+    init_sol1: torch.Tensor | None,
+    config: SeldonianConfig = DEFAULT_CONFIG,
+) -> tuple[torch.Tensor, torch.Tensor, bool]:
     """
     This function is used to run the qsa (Quasi-Seldonian Algorithm)
 
@@ -22,10 +33,12 @@ def QSA(X, Y, T, seldonian_type, init_sol, init_sol1, config=DEFAULT_CONFIG):
     :param init_sol: The initial theta values for the model
     :param init_sol1: The additional initial theta values for the model
     :param config: Algorithm configuration
-    :return: (theta, theta1, passed_safety) tuple
+    :return: (thetexit
+    a, theta1, passed_safety) tuple
     """
-    cand_data_X, safe_data_X, cand_data_Y, safe_data_Y = train_test_split(
-        X, Y, test_size=1 - config.candidate_ratio, shuffle=False
+    cand_data_X, safe_data_X, cand_data_Y, safe_data_Y = cast(
+        "tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]",
+        train_test_split(X, Y, test_size=1 - config.candidate_ratio, shuffle=False),
     )
     cand_data_T, safe_data_T = np.split(
         T,
@@ -55,14 +68,14 @@ def QSA(X, Y, T, seldonian_type, init_sol, init_sol1, config=DEFAULT_CONFIG):
 
 
 def safety_test(
-    theta,
-    theta1,
-    safe_data_X,
-    safe_data_Y,
-    safe_data_T,
-    seldonian_type,
-    config=DEFAULT_CONFIG,
-):
+    theta: torch.Tensor,
+    theta1: torch.Tensor,
+    safe_data_X: np.ndarray,
+    safe_data_Y: np.ndarray,
+    safe_data_T: np.ndarray,
+    seldonian_type: str,
+    config: SeldonianConfig = DEFAULT_CONFIG,
+) -> bool:
     """
     This function does the safety test.
 
@@ -85,14 +98,14 @@ def safety_test(
 
 
 def get_cand_solution(
-    cand_data_X,
-    cand_data_Y,
-    cand_data_T,
-    seldonian_type,
-    init_sol,
-    init_sol1,
-    config=DEFAULT_CONFIG,
-):
+    cand_data_X: np.ndarray,
+    cand_data_Y: np.ndarray,
+    cand_data_T: np.ndarray,
+    seldonian_type: str,
+    init_sol: torch.Tensor | None,
+    init_sol1: torch.Tensor | None,
+    config: SeldonianConfig = DEFAULT_CONFIG,
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     This function provides the candidate solution.
 
@@ -107,6 +120,8 @@ def get_cand_solution(
     """
     if init_sol is None:
         init_sol, init_sol1 = simple_logistic(cand_data_X, cand_data_Y)
+    # init_sol and init_sol1 are always supplied (or recomputed) as a pair.
+    assert init_sol1 is not None
     if logger.isEnabledFor(logging.DEBUG):
         init_upper_bound = eval_ghat(
             init_sol,
@@ -135,7 +150,14 @@ def get_cand_solution(
     return theta0, theta1
 
 
-def cand_obj(theta, cand_data_X, cand_data_Y, cand_data_T, seldonian_type, config):
+def cand_obj(
+    theta: np.ndarray,
+    cand_data_X: np.ndarray,
+    cand_data_Y: np.ndarray,
+    cand_data_T: np.ndarray,
+    seldonian_type: str,
+    config: SeldonianConfig,
+) -> float:
     """
     Objective function minimized by the optimizer.
 

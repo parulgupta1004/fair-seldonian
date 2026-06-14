@@ -1,19 +1,25 @@
+from __future__ import annotations
+
 import math
 from enum import Enum
+from typing import TYPE_CHECKING
 
 import torch
 from scipy import stats
+
+if TYPE_CHECKING:
+    from .._typing import Array, Bound
 
 # `T.astype(str) == group` dominates the confidence-bound hot path: the optimizer
 # evaluates the constraint thousands of times while T never changes. Memoize the
 # group mask per (T, group). Keyed by object identity and guarded with `is`, so a
 # recycled id can never return a stale mask; T is treated as immutable here. The
 # cache is bounded and cleared wholesale to cap retained references.
-_GROUP_MASK_CACHE = {}
+_GROUP_MASK_CACHE: dict[tuple[int, str], tuple[Array, Array]] = {}
 _GROUP_MASK_CACHE_MAX = 32
 
 
-def group_mask(T, group):
+def group_mask(T: Array, group: str) -> Array:
     """Boolean mask of rows whose sensitive attribute equals ``group`` (cached)."""
     key = (id(T), group)
     cached = _GROUP_MASK_CACHE.get(key)
@@ -26,7 +32,9 @@ def group_mask(T, group):
     return mask
 
 
-def eval_estimate(element, Y, predicted_Y, T):
+def eval_estimate(
+    element: str, Y: Array, predicted_Y: torch.Tensor, T: Array
+) -> torch.Tensor:
     r"""
     Estimates the value of the base variable.
     Assumes that Y and predicted_y contain 0,1 binary classification.
@@ -90,16 +98,16 @@ def eval_estimate(element, Y, predicted_Y, T):
 
 
 def eval_func_bound(
-    element,
-    Y,
-    predicted_Y,
-    T,
-    delta,
-    inequality,
-    candidate_safety_ratio,
-    predict_bound,
-    modified_h,
-):
+    element: str,
+    Y: Array,
+    predicted_Y: torch.Tensor,
+    T: Array,
+    delta: float,
+    inequality: Inequality,
+    candidate_safety_ratio: float | None,
+    predict_bound: bool,
+    modified_h: bool,
+) -> tuple[Bound, Bound]:
     num_of_elements = get_num_of_elements(element, Y)
     num_in_group = int(group_mask(T, element[3:-1]).sum())
     # When the group is empty or there are too few label-matched samples to form
@@ -114,12 +122,16 @@ def eval_func_bound(
     if inequality == Inequality.T_TEST:
         variance = get_variance(element, estimate, predicted_Y, T, num_of_elements)
         if predict_bound:
+            # predict_bound is only set together with a candidate/safety split.
+            assert candidate_safety_ratio is not None
             return predict_t_test(
                 estimate, variance, candidate_safety_ratio * num_of_elements, delta
             )
         return eval_t_test(estimate, variance, num_of_elements, delta)
     elif inequality == Inequality.HOEFFDING_INEQUALITY:
         if predict_bound:
+            # predict_bound is only set together with a candidate/safety split.
+            assert candidate_safety_ratio is not None
             if modified_h:
                 return predict_hoeffding_modified(
                     estimate,
@@ -147,7 +159,7 @@ class Inequality(Enum):
     HOEFFDING_INEQUALITY = 2
 
 
-def get_num_of_elements(element, Y):
+def get_num_of_elements(element: str, Y: Array) -> int:
     if element.startswith("TP") or element.startswith("FN"):
         # filter Y=1
         return len(Y[Y == 1])
@@ -157,39 +169,55 @@ def get_num_of_elements(element, Y):
     raise ValueError(f"Unknown constraint variable: {element!r}")
 
 
-def eval_hoeffding(estimate, num_of_elements, delta):
+def eval_hoeffding(
+    estimate: Bound, num_of_elements: int, delta: float
+) -> tuple[Bound, Bound]:
     int_size = math.sqrt(math.log(1 / delta) / (2 * num_of_elements))
     return estimate - int_size, estimate + int_size
 
 
-def predict_hoeffding(estimate, safety_size, delta):
+def predict_hoeffding(
+    estimate: Bound, safety_size: float, delta: float
+) -> tuple[Bound, Bound]:
     constant_term = math.sqrt(math.log(1 / delta) / (2 * safety_size))
     int_size = 2 * constant_term
     return estimate - int_size, estimate + int_size
 
 
-def predict_hoeffding_modified(estimate, num_of_elements, safety_size, delta):
+def predict_hoeffding_modified(
+    estimate: Bound, num_of_elements: float, safety_size: float, delta: float
+) -> tuple[Bound, Bound]:
     constant_term1 = math.sqrt(math.log(1 / delta) / (2 * num_of_elements))
     constant_term2 = math.sqrt(math.log(1 / delta) / (2 * safety_size))
     int_size = constant_term1 + constant_term2
     return estimate - int_size, estimate + int_size
 
 
-def get_variance(element, estimate, predicted_Y, T, num_of_elements):
+def get_variance(
+    element: str,
+    estimate: Bound,
+    predicted_Y: torch.Tensor,
+    T: Array,
+    num_of_elements: int,
+) -> float:
     # element will be of the form FP(A) or FN(A) or TP(A) or TN(A)
     type_attribute = element[3:-1]
-    type_Y = predicted_Y[group_mask(T, type_attribute)]
+    type_Y = predicted_Y[torch.tensor(group_mask(T, type_attribute))]
     sum_term = (type_Y - estimate) ** 2
     return math.sqrt(float(sum_term.sum().detach()) / (num_of_elements - 1))
 
 
-def eval_t_test(estimate, variance, num_of_elements, delta):
-    t = stats.t.ppf(1 - delta, num_of_elements - 1)
+def eval_t_test(
+    estimate: Bound, variance: float, num_of_elements: int, delta: float
+) -> tuple[Bound, Bound]:
+    t = float(stats.t.ppf(1 - delta, num_of_elements - 1))
     int_size = (variance / math.sqrt(num_of_elements)) * t
     return estimate - int_size, estimate + int_size
 
 
-def predict_t_test(estimate, variance, safety_size, delta):
-    t = stats.t.ppf(1 - delta, safety_size - 1)
+def predict_t_test(
+    estimate: Bound, variance: float, safety_size: float, delta: float
+) -> tuple[Bound, Bound]:
+    t = float(stats.t.ppf(1 - delta, safety_size - 1))
     int_size = 2 * (variance / math.sqrt(safety_size)) * t
     return estimate - int_size, estimate + int_size

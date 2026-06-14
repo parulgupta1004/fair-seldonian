@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 from .constraints.inequalities import Inequality
@@ -12,7 +14,7 @@ class SeldonianConfig:
     constraint: str = "TP(1) TP(0) - abs 0.25 TP(1) * -"
     candidate_ratio: float = 0.40
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not 0 < self.delta < 1:
             raise ValueError(f"delta must be in (0, 1), got {self.delta}")
         if not 0 < self.candidate_ratio < 1:

@@ -1,7 +1,15 @@
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING, TypeVar, overload
 
 from .bounds import eval_math_bound
-from .inequalities import eval_estimate, eval_func_bound
+from .inequalities import Inequality, eval_estimate, eval_func_bound
+
+if TYPE_CHECKING:
+    import torch
+
+    from .._typing import Array, Bound
 
 logger = logging.getLogger(__name__)
 
@@ -14,25 +22,38 @@ class ExprTree:
     An expression tree node of the constraint tree
     """
 
-    def __init__(self, value):
+    def __init__(self, value: str) -> None:
         self.value = value
-        self.left = None
-        self.right = None
+        self.left: ExprTree | None = None
+        self.right: ExprTree | None = None
 
 
-def is_operator(element):
+def is_operator(element: str) -> bool:
     return element in {"+", "-", "*", "/", "^"}
 
 
-def is_mod(element):
+def is_mod(element: str) -> bool:
     return element == "abs"
 
 
-def is_func(element):
+def is_func(element: str) -> bool:
     return element.startswith(("FP", "FN", "TP", "TN"))
 
 
-def construct_expr_tree_base(rev_polish_notation, node_class=None):
+_NodeT = TypeVar("_NodeT", bound=ExprTree)
+
+
+@overload
+def construct_expr_tree_base(
+    rev_polish_notation: str, node_class: None = None
+) -> ExprTree: ...
+@overload
+def construct_expr_tree_base(
+    rev_polish_notation: str, node_class: type[_NodeT]
+) -> _NodeT: ...
+def construct_expr_tree_base(
+    rev_polish_notation: str, node_class: type[ExprTree] | None = None
+) -> ExprTree:
     """
     Returns root of constructed tree for given postfix expression
 
@@ -42,9 +63,9 @@ def construct_expr_tree_base(rev_polish_notation, node_class=None):
     """
     if node_class is None:
         node_class = ExprTree
-    rev_polish_notation = rev_polish_notation.split(" ")
-    stack = []
-    for element in rev_polish_notation:
+    tokens = rev_polish_notation.split(" ")
+    stack: list[ExprTree] = []
+    for element in tokens:
         if not is_operator(element) and not is_mod(element):
             t = node_class(element)
             stack.append(t)
@@ -67,7 +88,12 @@ def construct_expr_tree_base(rev_polish_notation, node_class=None):
 #################
 # Evaluate tree #
 #################
-def eval_expr_tree_base(t_node, Y, predicted_Y, T):
+def eval_expr_tree_base(
+    t_node: ExprTree | None,
+    Y: Array | None,
+    predicted_Y: torch.Tensor | None,
+    T: Array | None,
+) -> Bound | None:
     """
     A utility function to evaluate estimate of the expression tree
 
@@ -82,6 +108,8 @@ def eval_expr_tree_base(t_node, Y, predicted_Y, T):
         y = eval_expr_tree_base(t_node.right, Y, predicted_Y, T)
         if x is None:
             if is_func(t_node.value):
+                # Function nodes require the dataset to compute an estimate.
+                assert Y is not None and predicted_Y is not None and T is not None
                 return eval_estimate(t_node.value, Y, predicted_Y, T)
             return float(t_node.value)
         elif y is None:
@@ -100,6 +128,8 @@ def eval_expr_tree_base(t_node, Y, predicted_Y, T):
             elif t_node.value == "/":
                 return x / y
             elif is_func(t_node.value):
+                # Function nodes require the dataset to compute an estimate.
+                assert Y is not None and predicted_Y is not None and T is not None
                 return eval_estimate(t_node.value, Y, predicted_Y, T)
             elif is_mod(t_node.value):
                 return abs(float(x))
@@ -111,20 +141,20 @@ def eval_expr_tree_base(t_node, Y, predicted_Y, T):
 # Evaluate conf interval #
 ##########################
 def _eval_node_bounds(
-    t_node,
-    l_x,
-    u_x,
-    l_y,
-    u_y,
-    delta,
-    Y,
-    predicted_Y,
-    T,
-    inequality,
-    candidate_safety_ratio,
-    predict_bound,
-    modified_h,
-):
+    t_node: ExprTree,
+    l_x: Bound | None,
+    u_x: Bound | None,
+    l_y: Bound | None,
+    u_y: Bound | None,
+    delta: float,
+    Y: Array,
+    predicted_Y: torch.Tensor,
+    T: Array,
+    inequality: Inequality,
+    candidate_safety_ratio: float | None,
+    predict_bound: bool,
+    modified_h: bool,
+) -> tuple[Bound | None, Bound | None]:
     if l_x is None and u_x is None:
         if is_func(t_node.value):
             return eval_func_bound(
@@ -164,16 +194,16 @@ def _eval_node_bounds(
 
 
 def eval_expr_tree_conf_interval_base(
-    t_node,
-    Y,
-    predicted_Y,
-    T,
-    delta,
-    inequality,
-    candidate_safety_ratio,
-    predict_bound,
-    modified_h,
-):
+    t_node: ExprTree | None,
+    Y: Array,
+    predicted_Y: torch.Tensor,
+    T: Array,
+    delta: float,
+    inequality: Inequality,
+    candidate_safety_ratio: float | None,
+    predict_bound: bool,
+    modified_h: bool,
+) -> tuple[Bound | None, Bound | None]:
     """
     To evaluate confidence interval of the expression tree
 
@@ -237,7 +267,7 @@ def eval_expr_tree_conf_interval_base(
 ##############
 # Print Tree #
 ##############
-def inorder(t_node):
+def inorder(t_node: ExprTree | None) -> None:
     """
     A utility function to log inorder traversal
 

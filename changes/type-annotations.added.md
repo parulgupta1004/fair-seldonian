@@ -1,0 +1,1 @@
+The package is now fully type-annotated and type-checked with `pyrefly`. Combined with the existing `py.typed` marker, downstream code using `fair-seldonian` now gets complete type information for the public API.

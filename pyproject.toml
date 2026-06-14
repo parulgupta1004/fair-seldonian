@@ -82,7 +82,7 @@ notebook = [
 default-groups = ["dev", "notebook"]
 
 [tool.pyrefly]
-project_includes = ["src/"]
+project_includes = ["src/", "tests/"]
 python_version = "3.14"
 
 [tool.ruff]

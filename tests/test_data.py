@@ -3,14 +3,14 @@ import pandas as pd
 from fair_seldonian.data.synthetic import data_split, get_data
 
 
-def test_get_data():
+def test_get_data() -> None:
     data = get_data(
         N=100, features=3, t_ratio=0.5, tp0_ratio=0.4, tp1_ratio=0.6, random_seed=42
     )
     assert isinstance(data, pd.DataFrame) and len(data) == 100
 
 
-def test_data_split():
+def test_data_split() -> None:
     data = get_data(
         N=200, features=5, t_ratio=0.5, tp0_ratio=0.4, tp1_ratio=0.6, random_seed=42
     )

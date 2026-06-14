@@ -13,14 +13,16 @@ from fair_seldonian.models.logistic_regression import (
 )
 
 
-def _split(n=500):
+def _split(
+    n: int = 500,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     data = get_data(
         N=n, features=5, t_ratio=0.5, tp0_ratio=0.4, tp1_ratio=0.6, random_seed=42
     )
     return data_split(frac=0.5, all_data=data, random_state=1, m_test=0.2)
 
 
-def test_predict_range():
+def test_predict_range() -> None:
     p = predict(
         torch.randn(5, dtype=torch.float64),
         torch.tensor([0.0], dtype=torch.float64),
@@ -29,11 +31,11 @@ def test_predict_range():
     assert p.shape[0] == 20 and (p >= 0).all() and (p <= 1).all()
 
 
-def test_predict_none():
+def test_predict_none() -> None:
     assert (predict(None, None, np.zeros((5, 5))) == 1.0).all()
 
 
-def test_predict_zero_weights():
+def test_predict_zero_weights() -> None:
     p = predict(
         torch.zeros(5, dtype=torch.float64),
         torch.tensor([0.0], dtype=torch.float64),
@@ -42,7 +44,7 @@ def test_predict_zero_weights():
     assert torch.allclose(p, torch.full_like(p, 0.5))
 
 
-def test_fhat():
+def test_fhat() -> None:
     loss = f_hat(
         torch.randn(5, dtype=torch.float64),
         torch.tensor([0.0], dtype=torch.float64),
@@ -52,27 +54,27 @@ def test_fhat():
     assert loss.dim() == 0 and float(loss) <= 0
 
 
-def test_simple_logistic():
+def test_simple_logistic() -> None:
     Xt, Yt, _, _, _, _ = _split()
     theta, theta1 = simple_logistic(Xt, Yt)
     assert theta.shape[0] == 5 and theta1.shape[0] == 1
 
 
-def test_eval_ghat_all_modes():
+def test_eval_ghat_all_modes() -> None:
     Xt, Yt, Tt, Xe, Ye, Te = _split()
     theta, theta1 = simple_logistic(Xt, Yt)
     for mode in ["base", "mod", "bound", "const", "opt"]:
         assert eval_ghat(theta, theta1, Xe, Ye, Te, mode) is not None
 
 
-def test_ghat_all_modes():
+def test_ghat_all_modes() -> None:
     Xt, Yt, Tt, _, _, _ = _split()
     theta, theta1 = simple_logistic(Xt, Yt)
     for mode in ["base", "mod", "bound", "const", "opt"]:
         assert ghat(theta, theta1, Xt, Yt, Tt, 0.4, mode) is not None
 
 
-def test_eval_ghat_custom_config():
+def test_eval_ghat_custom_config() -> None:
     config = SeldonianConfig(delta=0.01)
     Xt, Yt, Tt, Xe, Ye, Te = _split()
     theta, theta1 = simple_logistic(Xt, Yt)
@@ -80,14 +82,14 @@ def test_eval_ghat_custom_config():
         assert eval_ghat(theta, theta1, Xe, Ye, Te, mode, config) is not None
 
 
-def test_ghat_ttest_config():
+def test_ghat_ttest_config() -> None:
     config = SeldonianConfig(inequality=Inequality.T_TEST)
     Xt, Yt, Tt, _, _, _ = _split()
     theta, theta1 = simple_logistic(Xt, Yt)
     assert ghat(theta, theta1, Xt, Yt, Tt, 0.4, "base", config) is not None
 
 
-def test_smaller_delta_widens_bound():
+def test_smaller_delta_widens_bound() -> None:
     Xt, Yt, Tt, _, _, _ = _split()
     theta, theta1 = simple_logistic(Xt, Yt)
     loose = float(

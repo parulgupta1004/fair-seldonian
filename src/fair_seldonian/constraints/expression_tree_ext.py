@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 
 from .expression_tree import ExprTree as _BaseExprTree
 from .expression_tree import (
@@ -8,6 +11,12 @@ from .expression_tree import (
     is_func,
 )
 
+if TYPE_CHECKING:
+    import torch
+
+    from .._typing import Array, Bound
+    from .inequalities import Inequality
+
 logger = logging.getLogger(__name__)
 
 
@@ -16,11 +25,17 @@ class ExprTree(_BaseExprTree):
     Extended expression tree node with delta tracking
     """
 
-    def add_delta(self, delta):
+    left: ExprTree | None  # pyrefly: ignore[bad-override-mutable-attribute]
+    right: ExprTree | None  # pyrefly: ignore[bad-override-mutable-attribute]
+    delta: float
+
+    def add_delta(self, delta: float) -> None:
         self.delta = delta
 
 
-def construct_expr_tree(rev_polish_notation, delta, check_bound, check_constant):
+def construct_expr_tree(
+    rev_polish_notation: str, delta: float, check_bound: bool, check_constant: bool
+) -> ExprTree:
     """
     Returns root of constructed tree for given postfix expression
 
@@ -32,18 +47,20 @@ def construct_expr_tree(rev_polish_notation, delta, check_bound, check_constant)
     return t
 
 
-def configure_delta(t_node, delta, check_bound, check_constant):
+def configure_delta(
+    t_node: ExprTree | None, delta: float, check_bound: bool, check_constant: bool
+) -> None:
     if check_constant:
         add_deltas_constant(t_node, delta)
     else:
         add_deltas(t_node, delta)
     if check_bound:
-        hash_map = {}
+        hash_map: dict[str, list[float]] = {}
         check_node_dup(t_node, hash_map)
         change_deltas(t_node, hash_map)
 
 
-def add_deltas_constant(t_node, delta):
+def add_deltas_constant(t_node: ExprTree | None, delta: float) -> None:
     if t_node is not None:
         if t_node.left is not None and t_node.left.value is not None:
             if is_constant(t_node.left.value):
@@ -60,14 +77,14 @@ def add_deltas_constant(t_node, delta):
         if t_node.right is not None and t_node.right.value is not None:
             if is_constant(t_node.right.value):
                 child_delta_right = delta
-            elif is_constant(t_node.left.value):
+            elif t_node.left is not None and is_constant(t_node.left.value):
                 child_delta_right = delta
             else:
                 child_delta_right = delta / 2
             add_deltas_constant(t_node.right, child_delta_right)
 
 
-def add_deltas(t_node, delta):
+def add_deltas(t_node: ExprTree | None, delta: float) -> None:
     if t_node is not None:
         if t_node.left is not None and t_node.left.value is not None:
             if t_node.right is not None and t_node.right.value is not None:
@@ -81,7 +98,7 @@ def add_deltas(t_node, delta):
             add_deltas(t_node.right, child_delta_right)
 
 
-def check_node_dup(t_node, hash_map):
+def check_node_dup(t_node: ExprTree | None, hash_map: dict[str, list[float]]) -> None:
     if t_node is not None:
         check_node_dup(t_node.left, hash_map)
         if is_func(t_node.value):
@@ -94,7 +111,7 @@ def check_node_dup(t_node, hash_map):
         check_node_dup(t_node.right, hash_map)
 
 
-def is_constant(t_node_value):
+def is_constant(t_node_value: str) -> bool:
     try:
         float(t_node_value)
         return True
@@ -102,13 +119,13 @@ def is_constant(t_node_value):
         return False
 
 
-def change_deltas(t_node, hash_map):
+def change_deltas(t_node: ExprTree | None, hash_map: dict[str, list[float]]) -> None:
     for k, v in hash_map.items():
         if len(v) > 1:
             change_delta_value(t_node, k, sum(v))
 
 
-def change_delta_value(t_node, element, delta):
+def change_delta_value(t_node: ExprTree | None, element: str, delta: float) -> None:
     if t_node is not None:
         change_delta_value(t_node.left, element, delta)
         if t_node.value == element:
@@ -119,7 +136,12 @@ def change_delta_value(t_node, element, delta):
 #################
 # Evaluate tree #
 #################
-def eval_expr_tree(t_node, Y=None, predicted_Y=None, T=None):
+def eval_expr_tree(
+    t_node: _BaseExprTree | None,
+    Y: Array | None = None,
+    predicted_Y: torch.Tensor | None = None,
+    T: Array | None = None,
+) -> Bound | None:
     return eval_expr_tree_base(t_node, Y, predicted_Y, T)
 
 
@@ -127,15 +149,15 @@ def eval_expr_tree(t_node, Y=None, predicted_Y=None, T=None):
 # Evaluate conf interval #
 ##########################
 def eval_expr_tree_conf_interval(
-    t_node,
-    Y,
-    predicted_Y,
-    T,
-    inequality,
-    candidate_safety_ratio,
-    predict_bound,
-    modified_h,
-):
+    t_node: ExprTree | None,
+    Y: Array,
+    predicted_Y: torch.Tensor,
+    T: Array,
+    inequality: Inequality,
+    candidate_safety_ratio: float | None,
+    predict_bound: bool,
+    modified_h: bool,
+) -> tuple[Bound | None, Bound | None]:
     if t_node is not None:
         l_x, u_x = eval_expr_tree_conf_interval(
             t_node.left,
@@ -178,7 +200,7 @@ def eval_expr_tree_conf_interval(
 ##############
 # Print Tree #
 ##############
-def inorder_ext(t_node):
+def inorder_ext(t_node: ExprTree | None) -> None:
     if t_node is not None:
         inorder_ext(t_node.left)
         logger.debug(f"{t_node.value} {t_node.delta}")

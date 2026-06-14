@@ -1,10 +1,13 @@
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
 from sklearn.linear_model import LogisticRegression
 
-from ..config import DEFAULT_CONFIG
+from ..config import DEFAULT_CONFIG, SeldonianConfig
 from ..constraints.expression_tree import (
     construct_expr_tree_base,
     eval_expr_tree_conf_interval_base,
@@ -14,10 +17,15 @@ from ..constraints.expression_tree_ext import (
     eval_expr_tree_conf_interval,
 )
 
+if TYPE_CHECKING:
+    from .._typing import Array, Bound
+
 logger = logging.getLogger(__name__)
 
 
-def predict(theta, theta1, X):
+def predict(
+    theta: torch.Tensor | None, theta1: torch.Tensor | None, X: np.ndarray
+) -> torch.Tensor:
     """
     This is the predict function for Logistic Regression.
     Currently, it implements: 1 / (1 + e^-(X.theta + theta1))
@@ -40,7 +48,9 @@ def predict(theta, theta1, X):
     )
 
 
-def f_hat(theta, theta1, X, Y):
+def f_hat(
+    theta: torch.Tensor | None, theta1: torch.Tensor | None, X: np.ndarray, Y: Array
+) -> torch.Tensor:
     """
     Main objective function: negative log loss.
 
@@ -56,7 +66,7 @@ def f_hat(theta, theta1, X, Y):
     return -loss(predicted_Y, torch.tensor(Y).long())
 
 
-def simple_logistic(X, Y):
+def simple_logistic(X: np.ndarray, Y: Array) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Runs simple logistic regression.
 
@@ -77,7 +87,15 @@ def simple_logistic(X, Y):
         raise
 
 
-def eval_ghat(theta, theta1, X, Y, T, seldonian_type, config=DEFAULT_CONFIG):
+def eval_ghat(
+    theta: torch.Tensor,
+    theta1: torch.Tensor,
+    X: np.ndarray,
+    Y: Array,
+    T: Array,
+    seldonian_type: str,
+    config: SeldonianConfig = DEFAULT_CONFIG,
+) -> Bound:
     if seldonian_type == "base":
         return eval_ghat_base(theta, theta1, X, Y, T, False, config)
     elif seldonian_type == "mod":
@@ -93,8 +111,15 @@ def eval_ghat(theta, theta1, X, Y, T, seldonian_type, config=DEFAULT_CONFIG):
 
 
 def ghat(
-    theta, theta1, X, Y, T, candidate_ratio, seldonian_type, config=DEFAULT_CONFIG
-):
+    theta: torch.Tensor,
+    theta1: torch.Tensor,
+    X: np.ndarray,
+    Y: Array,
+    T: Array,
+    candidate_ratio: float,
+    seldonian_type: str,
+    config: SeldonianConfig = DEFAULT_CONFIG,
+) -> Bound:
     if seldonian_type == "base":
         return ghat_base(theta, theta1, X, Y, T, True, candidate_ratio, False, config)
     elif seldonian_type == "mod":
@@ -116,16 +141,16 @@ def ghat(
 
 
 def ghat_base(
-    theta,
-    theta1,
-    X,
-    Y,
-    T,
-    predict_bound,
-    candidate_ratio,
-    modified_h,
-    config=DEFAULT_CONFIG,
-):
+    theta: torch.Tensor,
+    theta1: torch.Tensor,
+    X: np.ndarray,
+    Y: Array,
+    T: Array,
+    predict_bound: bool,
+    candidate_ratio: float | None,
+    modified_h: bool,
+    config: SeldonianConfig = DEFAULT_CONFIG,
+) -> Bound:
     pred = predict(theta, theta1, X)
     r = construct_expr_tree_base(config.constraint)
     cand_safe_ratio = None
@@ -142,26 +167,38 @@ def ghat_base(
         predict_bound=predict_bound,
         modified_h=modified_h,
     )
+    if u is None:
+        raise ValueError(
+            f"Constraint {config.constraint!r} produced an undefined bound"
+        )
     return u
 
 
-def eval_ghat_base(theta, theta1, X, Y, T, modified_h, config=DEFAULT_CONFIG):
+def eval_ghat_base(
+    theta: torch.Tensor,
+    theta1: torch.Tensor,
+    X: np.ndarray,
+    Y: Array,
+    T: Array,
+    modified_h: bool,
+    config: SeldonianConfig = DEFAULT_CONFIG,
+) -> Bound:
     return ghat_base(theta, theta1, X, Y, T, False, None, modified_h, config)
 
 
 def ghat_extend(
-    theta,
-    theta1,
-    X,
-    Y,
-    T,
-    predict_bound,
-    candidate_ratio,
-    check_bound,
-    check_const,
-    modified_h,
-    config=DEFAULT_CONFIG,
-):
+    theta: torch.Tensor,
+    theta1: torch.Tensor,
+    X: np.ndarray,
+    Y: Array,
+    T: Array,
+    predict_bound: bool,
+    candidate_ratio: float | None,
+    check_bound: bool,
+    check_const: bool,
+    modified_h: bool,
+    config: SeldonianConfig = DEFAULT_CONFIG,
+) -> Bound:
     pred = predict(theta, theta1, X)
     r = construct_expr_tree(
         config.constraint,
@@ -182,12 +219,24 @@ def ghat_extend(
         predict_bound=predict_bound,
         modified_h=modified_h,
     )
+    if u is None:
+        raise ValueError(
+            f"Constraint {config.constraint!r} produced an undefined bound"
+        )
     return u
 
 
 def eval_ghat_extend(
-    theta, theta1, X, Y, T, check_bound, check_const, modified_h, config=DEFAULT_CONFIG
-):
+    theta: torch.Tensor,
+    theta1: torch.Tensor,
+    X: np.ndarray,
+    Y: Array,
+    T: Array,
+    check_bound: bool,
+    check_const: bool,
+    modified_h: bool,
+    config: SeldonianConfig = DEFAULT_CONFIG,
+) -> Bound:
     return ghat_extend(
         theta,
         theta1,
