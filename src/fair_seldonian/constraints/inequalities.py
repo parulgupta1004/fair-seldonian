@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import threading
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
 # cache is bounded and cleared wholesale to cap retained references.
 _GROUP_MASK_CACHE: dict[tuple[int, str], tuple[Array, Array]] = {}
 _GROUP_MASK_CACHE_MAX = 32
+_GROUP_MASK_CACHE_LOCK = threading.Lock()  # to ensure it works on free-threading Python
 
 
 def group_mask(T: Array, group: str) -> Array:
@@ -26,9 +28,10 @@ def group_mask(T: Array, group: str) -> Array:
     if cached is not None and cached[0] is T:
         return cached[1]
     mask = T.astype(str) == group
-    if len(_GROUP_MASK_CACHE) >= _GROUP_MASK_CACHE_MAX:
-        _GROUP_MASK_CACHE.clear()
-    _GROUP_MASK_CACHE[key] = (T, mask)
+    with _GROUP_MASK_CACHE_LOCK:
+        if len(_GROUP_MASK_CACHE) >= _GROUP_MASK_CACHE_MAX:
+            _GROUP_MASK_CACHE.clear()
+        _GROUP_MASK_CACHE[key] = (T, mask)
     return mask
 
 

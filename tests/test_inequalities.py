@@ -1,4 +1,5 @@
 import math
+import threading
 from typing import cast
 
 import pandas as pd
@@ -13,6 +14,7 @@ from fair_seldonian.constraints.inequalities import (
     eval_t_test,
     get_num_of_elements,
     get_variance,
+    group_mask,
     predict_hoeffding,
     predict_hoeffding_modified,
 )
@@ -122,3 +124,30 @@ def test_func_bound_single_sample_ttest_fails_closed() -> None:
         "TP(1)", Y, pred, T, 0.05, Inequality.T_TEST, None, False, False
     )
     assert lo == -math.inf and hi == math.inf
+
+
+def test_group_mask_thread_safe() -> None:
+    # The group-mask cache is shared module state. On the free-threaded (PEP 703)
+    # build these calls run in true parallel, so concurrent lookups, inserts, and
+    # evictions must stay correct without corrupting the cache.
+    errors: list[Exception] = []
+    barrier = threading.Barrier(8)
+
+    def worker() -> None:
+        barrier.wait()  # release all threads together to maximise contention
+        try:
+            for _ in range(200):
+                # A fresh Series each iteration yields a new id(), forcing a
+                # cache miss and exercising the lock-guarded insert/clear path.
+                t = pd.Series([0, 1, 1, 0, 1])
+                mask = group_mask(t, "1")
+                assert mask.tolist() == [False, True, True, False, True]
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert not errors
