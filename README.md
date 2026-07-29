@@ -75,6 +75,30 @@ config = SeldonianConfig(delta=0.01, inequality=Inequality.T_TEST, candidate_rat
 theta, theta1, passed = QSA(X_tr, Y_tr, T_tr, "opt", None, None, config)
 ```
 
+**Built-in fairness constraints:**
+
+Common fairness definitions ship as ready-to-use builders — no need to write the
+postfix constraint string by hand. Each takes a tolerance `epsilon`; the parity
+builders also take the two sensitive-attribute values to compare (default
+`("1", "0")`):
+
+```python
+from fair_seldonian import SeldonianConfig, demographic_parity
+
+config = SeldonianConfig(constraint=demographic_parity(epsilon=0.1))
+```
+
+| Builder | Bounds (`<= epsilon`) |
+|---|---|
+| `demographic_parity` | gap in predicted-positive rate (statistical parity) |
+| `equal_opportunity` | gap in true-positive rate |
+| `equalized_odds` | combined true- and false-positive-rate gaps |
+| `error_rate` | one group's misclassification rate |
+| `error_rate_parity` | gap in misclassification rate (overall accuracy equality) |
+
+See the [Fairness constraints](https://parulgupta1004.github.io/fair-seldonian/fairness_constraints.html)
+docs for definitions and references.
+
 ## Examples
 
 A runnable, end-to-end walkthrough lives in [`examples/quickstart.ipynb`](examples/quickstart.ipynb):

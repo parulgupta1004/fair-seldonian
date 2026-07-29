@@ -8,9 +8,11 @@ The behavior of QSA is controlled by :class:`SeldonianConfig`:
 * ``constraint``      - the fairness constraint in reverse Polish (postfix)
   notation, over group rates ``TP``, ``FP``, ``TN``, ``FN``
 
-The default constraint, ``"TP(1) TP(0) - abs 0.25 TP(1) * -"``, encodes
-``|TP(1) - TP(0)| - 0.25 * TP(1) <= 0`` (relaxed equalized opportunity). Below we
-instead require an absolute true-positive-rate gap of at most 0.10.
+For the common definitions you don't need to write the postfix string by hand:
+:mod:`fair_seldonian.constraints.fairness` ships ready-to-use builders -
+:func:`demographic_parity`, :func:`equal_opportunity`, and
+:func:`equalized_odds` - each taking a tolerance ``epsilon``. Below we compare a
+hand-written string against these named helpers.
 
 Run it with::
 
@@ -19,6 +21,7 @@ Run it with::
 
 from __future__ import annotations
 
+from fair_seldonian import demographic_parity, equal_opportunity, equalized_odds
 from fair_seldonian.algorithms import QSA
 from fair_seldonian.config import SeldonianConfig
 from fair_seldonian.constraints.inequalities import Inequality
@@ -63,6 +66,14 @@ def main() -> None:
         constraint="TP(1) TP(0) - abs 0.1 -",
     )
     evaluate("Stricter absolute-gap config", strict)
+
+    # The same, using the named builders instead of a hand-written string. Each
+    # takes a tolerance epsilon and defaults to comparing groups ("1", "0"). The
+    # ratio-based criteria (equal opportunity, equalized odds) have looser
+    # confidence bounds, so they need a larger epsilon to certify on this data.
+    evaluate("Demographic parity", SeldonianConfig(constraint=demographic_parity(0.15)))
+    evaluate("Equal opportunity", SeldonianConfig(constraint=equal_opportunity(0.2)))
+    evaluate("Equalized odds", SeldonianConfig(constraint=equalized_odds(0.3)))
 
 
 if __name__ == "__main__":
