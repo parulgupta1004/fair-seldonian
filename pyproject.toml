@@ -100,6 +100,13 @@ notebook = [
 # Sync the notebook group by default so `uv run jupyter lab` works out of the box.
 default-groups = ["dev", "notebook"]
 
+# Always resolve and lock against upstream PyPI. This overrides any machine-level
+# default index (e.g. an internal mirror in ~/.config/uv/uv.toml) so uv.lock URLs
+# stay public and reproducible for external contributors.
+[[tool.uv.index]]
+url = "https://pypi.org/simple"
+default = true
+
 [tool.pyrefly]
 project_includes = ["src/", "tests/"]
 python_version = "3.14"
