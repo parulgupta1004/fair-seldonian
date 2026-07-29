@@ -1,0 +1,1 @@
+Added runnable example scripts in `examples/` — `quickstart.py`, `fairness_guarantee.py`, `custom_constraint.py`, and `real_world_adult.py` (UCI Adult income) — plus an `examples/README.md` index, for users who prefer plain scripts over the notebook.
