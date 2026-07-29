@@ -78,19 +78,26 @@ theta, theta1, passed = QSA(X_tr, Y_tr, T_tr, "opt", None, None, config)
 **Built-in fairness constraints:**
 
 Common fairness definitions ship as ready-to-use builders — no need to write the
-postfix constraint string by hand. Each takes a tolerance `epsilon` and the two
-sensitive-attribute values to compare (default `("1", "0")`):
+postfix constraint string by hand. Each takes a tolerance `epsilon`; the parity
+builders also take the two sensitive-attribute values to compare (default
+`("1", "0")`):
 
 ```python
-from fair_seldonian import SeldonianConfig, demographic_parity, equal_opportunity, equalized_odds
+from fair_seldonian import SeldonianConfig, demographic_parity
 
 config = SeldonianConfig(constraint=demographic_parity(epsilon=0.1))
-# also: equal_opportunity(epsilon=0.1), equalized_odds(epsilon=0.1)
 ```
 
-`demographic_parity` bounds the gap in predicted-positive rate; `equal_opportunity`
-the gap in true-positive rate; `equalized_odds` the combined true- and
-false-positive-rate gaps.
+| Builder | Bounds (`<= epsilon`) |
+|---|---|
+| `demographic_parity` | gap in predicted-positive rate (statistical parity) |
+| `equal_opportunity` | gap in true-positive rate |
+| `equalized_odds` | combined true- and false-positive-rate gaps |
+| `error_rate` | one group's misclassification rate |
+| `error_rate_parity` | gap in misclassification rate (overall accuracy equality) |
+
+See the [Fairness constraints](https://parulgupta1004.github.io/fair-seldonian/fairness_constraints.html)
+docs for definitions and references.
 
 ## Examples
 

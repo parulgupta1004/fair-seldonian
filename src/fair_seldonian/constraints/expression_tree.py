@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING, TypeVar, overload
 
 from .bounds import eval_math_bound
@@ -38,6 +39,62 @@ def is_mod(element: str) -> bool:
 
 def is_func(element: str) -> bool:
     return element.startswith(("FP", "FN", "TP", "TN"))
+
+
+# A well-formed group-rate token: TP/FP/TN/FN followed by a parenthesised group
+# label containing no spaces or nested parentheses, e.g. ``TP(1)`` or ``FP(Male)``.
+_FUNC_TOKEN_RE = re.compile(r"^(?:TP|FP|TN|FN)\([^()\s]+\)$")
+
+
+def validate_constraint(rev_polish_notation: str) -> None:
+    """Validate a reverse-Polish (postfix) constraint string.
+
+    Checks that every token is recognized, that each operator/``abs`` has enough
+    operands, and that the whole expression reduces to a single value - i.e. that
+    :func:`construct_expr_tree_base` can turn it into an evaluable tree. This is
+    what :class:`~fair_seldonian.config.SeldonianConfig` runs on its ``constraint``
+    so that a malformed custom string fails immediately instead of deep inside the
+    algorithm.
+
+    :param rev_polish_notation: the postfix constraint string to validate.
+    :raises ValueError: if the string is empty or not a valid postfix expression.
+    """
+    if not rev_polish_notation or not rev_polish_notation.strip():
+        raise ValueError("constraint must be a non-empty postfix expression")
+    stack_size = 0
+    for token in rev_polish_notation.split(" "):
+        if token == "":
+            raise ValueError(
+                f"constraint {rev_polish_notation!r} has an empty token; "
+                "use single spaces between tokens"
+            )
+        if is_operator(token):
+            if stack_size < 2:
+                raise ValueError(
+                    f"operator {token!r} needs two operands in {rev_polish_notation!r}"
+                )
+            stack_size -= 1  # pop two operands, push one result
+        elif is_mod(token):
+            if stack_size < 1:
+                raise ValueError(f"'abs' needs one operand in {rev_polish_notation!r}")
+            # pop one operand, push one result: net change is zero
+        elif _FUNC_TOKEN_RE.match(token):
+            stack_size += 1
+        else:
+            try:
+                float(token)
+            except ValueError:
+                raise ValueError(
+                    f"unrecognized token {token!r} in constraint "
+                    f"{rev_polish_notation!r}; expected a number, an operator "
+                    "(+ - * / ^), 'abs', or a group rate like 'TP(1)'"
+                ) from None
+            stack_size += 1
+    if stack_size != 1:
+        raise ValueError(
+            f"constraint {rev_polish_notation!r} is not a valid postfix expression "
+            "(it does not reduce to a single value)"
+        )
 
 
 _NodeT = TypeVar("_NodeT", bound=ExprTree)

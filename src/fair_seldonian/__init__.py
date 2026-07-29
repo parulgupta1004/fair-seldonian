@@ -11,6 +11,8 @@ from .constraints import construct_expr_tree_base as construct_expr_tree_base
 from .constraints import demographic_parity as demographic_parity
 from .constraints import equal_opportunity as equal_opportunity
 from .constraints import equalized_odds as equalized_odds
+from .constraints import error_rate as error_rate
+from .constraints import error_rate_parity as error_rate_parity
 from .constraints import eval_expr_tree as eval_expr_tree
 from .constraints import eval_expr_tree_base as eval_expr_tree_base
 from .constraints import eval_expr_tree_conf_interval as eval_expr_tree_conf_interval

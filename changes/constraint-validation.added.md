@@ -1,0 +1,1 @@
+`SeldonianConfig` now validates its `constraint` on construction, so a fairness builder's output or a hand-written custom postfix string is checked up front — a malformed expression raises `ValueError` immediately instead of failing deep inside `QSA`. The validator is exposed as `fair_seldonian.constraints.validate_constraint`.

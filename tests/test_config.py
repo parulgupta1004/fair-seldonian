@@ -2,6 +2,7 @@ from dataclasses import FrozenInstanceError, replace
 
 import pytest
 
+from fair_seldonian import demographic_parity, equalized_odds, error_rate
 from fair_seldonian.config import DEFAULT_CONFIG, SeldonianConfig
 from fair_seldonian.constraints.inequalities import Inequality
 
@@ -53,3 +54,31 @@ def test_invalid_delta_raises(delta: float) -> None:
 def test_invalid_candidate_ratio_raises(ratio: float) -> None:
     with pytest.raises(ValueError):
         SeldonianConfig(candidate_ratio=ratio)
+
+
+@pytest.mark.parametrize(
+    "constraint",
+    [
+        demographic_parity(0.1),
+        equalized_odds(0.2),
+        error_rate(0.1),
+        "TP(1) FP(0) - abs 0.1 -",  # a hand-written custom postfix string
+    ],
+)
+def test_accepts_fairness_builders_and_custom_postfix(constraint: str) -> None:
+    assert SeldonianConfig(constraint=constraint).constraint == constraint
+
+
+@pytest.mark.parametrize(
+    "constraint",
+    [
+        "",  # empty
+        "TP(1) +",  # operator without enough operands
+        "TP(1) TP(0)",  # does not reduce to a single value
+        "TP(1)  FP(0) -",  # double space -> empty token
+        "hello world",  # unrecognized tokens
+    ],
+)
+def test_invalid_constraint_raises(constraint: str) -> None:
+    with pytest.raises(ValueError):
+        SeldonianConfig(constraint=constraint)

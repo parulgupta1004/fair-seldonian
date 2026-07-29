@@ -39,6 +39,7 @@ never an unsafe model.
 
    intro
    quickstart
+   fairness_constraints
 
 .. toctree::
    :maxdepth: 2

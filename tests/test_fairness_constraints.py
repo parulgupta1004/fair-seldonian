@@ -11,8 +11,16 @@ from fair_seldonian import (
     demographic_parity,
     equal_opportunity,
     equalized_odds,
+    error_rate,
+    error_rate_parity,
 )
-from fair_seldonian.constraints import construct_expr_tree_base, eval_expr_tree_base
+from fair_seldonian.constraints import (
+    construct_expr_tree_base,
+    eval_expr_tree_base,
+    eval_expr_tree_conf_interval_base,
+)
+from fair_seldonian.constraints.inequalities import Inequality
+from fair_seldonian.data.synthetic import get_data
 
 
 def _dataset() -> tuple[pd.Series, torch.Tensor, pd.Series]:
@@ -61,10 +69,63 @@ def test_equalized_odds_value() -> None:
     assert _evaluate(equalized_odds(0.1)) == pytest.approx(0.90)
 
 
+def test_error_rate_value() -> None:
+    # err(g) = FP(g) + FN(g); err(1) = 0.50, err(0) = 0.00
+    assert _evaluate(error_rate(0.1, group="1")) == pytest.approx(0.40)
+    assert _evaluate(error_rate(0.1, group="0")) == pytest.approx(-0.10)
+
+
+def test_error_rate_parity_value() -> None:
+    # |err(1) - err(0)| - eps = |0.50 - 0.00| - 0.10 = 0.40
+    assert _evaluate(error_rate_parity(0.1)) == pytest.approx(0.40)
+
+
+def test_error_rate_parses() -> None:
+    assert construct_expr_tree_base(error_rate(0.1)) is not None
+
+
+def test_error_rate_rejects_negative_epsilon() -> None:
+    with pytest.raises(ValueError, match="epsilon"):
+        error_rate(-0.01)
+
+
+def test_error_rate_rejects_malformed_group() -> None:
+    with pytest.raises(ValueError, match="whitespace or parentheses"):
+        error_rate(0.1, group="a b")
+
+
 def test_all_constraints_parse() -> None:
     for build in FAIRNESS_CONSTRAINTS.values():
         # Should construct a tree without raising.
         assert construct_expr_tree_base(build(0.1)) is not None
+
+
+@pytest.mark.parametrize("build", list(FAIRNESS_CONSTRAINTS.values()))
+@pytest.mark.parametrize(
+    "inequality", [Inequality.HOEFFDING_INEQUALITY, Inequality.T_TEST]
+)
+def test_constraints_yield_confidence_bounds(build, inequality) -> None:
+    # Each builder's string must evaluate through the confidence-bound path
+    # (eval_func_bound + the operator/abs/division bound branches) and return a
+    # well-ordered interval.
+    d = get_data(
+        N=400, features=3, t_ratio=0.5, tp0_ratio=0.5, tp1_ratio=0.5, random_seed=7
+    )
+    Y, T = d.iloc[:, -2], d.iloc[:, -1]
+    pred = torch.tensor(Y.values, dtype=torch.float64)
+    lo, hi = eval_expr_tree_conf_interval_base(
+        construct_expr_tree_base(build(0.1)),
+        Y,
+        pred,
+        T,
+        0.05,
+        inequality,
+        1,
+        True,
+        False,
+    )
+    assert lo is not None and hi is not None
+    assert float(lo) <= float(hi)
 
 
 def test_custom_group_labels() -> None:
