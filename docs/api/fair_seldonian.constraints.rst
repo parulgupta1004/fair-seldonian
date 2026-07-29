@@ -28,6 +28,14 @@ fair\_seldonian.constraints.expression\_tree\_ext module
    :show-inheritance:
    :undoc-members:
 
+fair\_seldonian.constraints.fairness module
+-------------------------------------------
+
+.. automodule:: fair_seldonian.constraints.fairness
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 fair\_seldonian.constraints.inequalities module
 -----------------------------------------------
 

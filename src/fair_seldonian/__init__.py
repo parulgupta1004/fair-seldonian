@@ -4,9 +4,13 @@ from .algorithms import QSA as QSA
 from .algorithms import safety_test as safety_test
 from .config import DEFAULT_CONFIG as DEFAULT_CONFIG
 from .config import SeldonianConfig as SeldonianConfig
+from .constraints import FAIRNESS_CONSTRAINTS as FAIRNESS_CONSTRAINTS
 from .constraints import Inequality as Inequality
 from .constraints import construct_expr_tree as construct_expr_tree
 from .constraints import construct_expr_tree_base as construct_expr_tree_base
+from .constraints import demographic_parity as demographic_parity
+from .constraints import equal_opportunity as equal_opportunity
+from .constraints import equalized_odds as equalized_odds
 from .constraints import eval_expr_tree as eval_expr_tree
 from .constraints import eval_expr_tree_base as eval_expr_tree_base
 from .constraints import eval_expr_tree_conf_interval as eval_expr_tree_conf_interval
