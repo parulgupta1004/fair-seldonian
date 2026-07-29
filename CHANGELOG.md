@@ -2,6 +2,19 @@
 
 <!-- towncrier release notes start -->
 
+## 3.1.0
+
+### Added
+
+- Added a project Code of Conduct (adapted from the pyOpenSci Community Code of Conduct, CC0), linked from the contributing guide. (code-of-conduct)
+- `SeldonianConfig` now validates its `constraint` on construction, so a fairness builder's output or a hand-written custom postfix string is checked up front — a malformed expression raises `ValueError` immediately instead of failing deep inside `QSA`. The validator is exposed as `fair_seldonian.constraints.validate_constraint`. (constraint-validation)
+- Added runnable examples in `examples/` — the `quickstart.py`, `fairness_guarantee.py`, and `custom_constraint.py` scripts, plus a `real_world_adult.ipynb` notebook (UCI Adult income, with saved outputs) — and an `examples/README.md` index. (examples)
+- Added ready-to-use fairness constraint builders — `demographic_parity`, `equal_opportunity`, `equalized_odds`, `error_rate`, and `error_rate_parity` (in `fair_seldonian.constraints.fairness`, re-exported at the top level). Each returns the postfix constraint string for a given tolerance `epsilon` and group(s), so common fairness definitions can be passed straight to `SeldonianConfig` without hand-writing the notation. Documented with descriptions, references, and a summary table in the docs. (fairness-constraints)
+- Added support for the free-threaded (no-GIL, [PEP 703](https://peps.python.org/pep-0703/)) build of Python 3.14. The shared group-mask cache in the confidence-bound hot path is now guarded against concurrent access, and the test suite runs on a free-threaded interpreter in CI. (free-threading)
+- Added extensive unit tests for the constraint machinery: every sign case and infinite-endpoint path of the interval-bounds arithmetic (multiply, divide, add, subtract, abs), and expression-tree evaluation for the multiply/power/divide operators, a division-in-abs confidence interval, and inorder traversal. (test-coverage)
+- The package is now fully type-annotated and type-checked with `pyrefly`. Combined with the existing `py.typed` marker, downstream code using `fair-seldonian` now gets complete type information for the public API. (type-annotations)
+
+
 ## 3.0.0
 
 ### Added

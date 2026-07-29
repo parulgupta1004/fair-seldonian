@@ -1,1 +1,0 @@
-Added support for the free-threaded (no-GIL, [PEP 703](https://peps.python.org/pep-0703/)) build of Python 3.14. The shared group-mask cache in the confidence-bound hot path is now guarded against concurrent access, and the test suite runs on a free-threaded interpreter in CI.
