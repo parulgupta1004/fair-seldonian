@@ -2,13 +2,29 @@
 
 Thanks for your interest in contributing! Here's how to get started.
 
+This project has a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you
+are expected to uphold it.
+
 ## Setup
 
 ```bash
 git clone https://github.com/parulgupta1004/fair-seldonian.git
 cd fair-seldonian
 uv sync --extra dev
+pre-commit install               # enable formatting/linting on commit
 ```
+
+## Code style
+
+Formatting and linting are handled by [pre-commit](https://pre-commit.com/)
+hooks (isort, ruff, and ruff-format). Once you've run `pre-commit install`,
+they run automatically on each commit. To check everything manually:
+
+```bash
+uv run pre-commit run --all-files
+```
+
+CI runs the same checks, so running them locally keeps your pull request green.
 
 ## Running tests
 
@@ -26,18 +42,19 @@ uv run pytest
 
 ## Changelog
 
-This project uses [towncrier](https://towncrier.readthedocs.io/) for changelog management. When your change is user-facing, add a fragment in the `changes/` directory:
+This project uses [towncrier](https://towncrier.readthedocs.io/) for changelog management. When your change is user-facing, add a fragment in the `changes/` directory. Name each file `<short-slug>.<type>.md`, where `<type>` is one of `added`, `changed`, `fixed`, or `removed`:
 
 ```bash
 # For new features
-echo "Short description of the change." > changes/<issue-or-pr-number>.added
+echo "Short description of the change." > changes/my-feature.added.md
 
 # For bug fixes
-echo "Short description of the fix." > changes/<issue-or-pr-number>.fixed
+echo "Short description of the fix." > changes/some-bug.fixed.md
 
-# For other changes
-# .changed, .removed
+# For other changes: .changed.md, .removed.md
 ```
+
+(An issue or PR number also works as the slug, e.g. `changes/123.added.md`.)
 
 ## Ideas to get you started
 
