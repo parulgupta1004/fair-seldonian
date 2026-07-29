@@ -1,0 +1,1 @@
+Added extensive unit tests for the constraint machinery: every sign case and infinite-endpoint path of the interval-bounds arithmetic (multiply, divide, add, subtract, abs), and expression-tree evaluation for the multiply/power/divide operators, a division-in-abs confidence interval, and inorder traversal.
