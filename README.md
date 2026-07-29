@@ -93,7 +93,8 @@ pip install "fair-seldonian[notebook]"
 jupyter lab examples/quickstart.ipynb
 ```
 
-View it [rendered on nbviewer](https://nbviewer.org/github/parulgupta1004/fair-seldonian/blob/master/examples/quickstart.ipynb).
+View it [rendered on nbviewer](https://nbviewer.org/github/parulgupta1004/fair-seldonian/blob/master/examples/quickstart.ipynb),
+or in the [documentation's Examples section](https://parulgupta1004.github.io/fair-seldonian/examples/index.html).
 
 Prefer plain scripts? The [`examples/`](examples/) directory has runnable `.py`
 versions — `quickstart.py`, `fairness_guarantee.py`, and `custom_constraint.py` —
