@@ -96,8 +96,10 @@ jupyter lab examples/quickstart.ipynb
 View it [rendered on nbviewer](https://nbviewer.org/github/parulgupta1004/fair-seldonian/blob/master/examples/quickstart.ipynb).
 
 Prefer plain scripts? The [`examples/`](examples/) directory has runnable `.py`
-versions — `quickstart.py`, `fairness_guarantee.py`, `custom_constraint.py`, and
-`real_world_adult.py` (UCI Adult income) — described in [`examples/README.md`](examples/README.md):
+versions — `quickstart.py`, `fairness_guarantee.py`, and `custom_constraint.py` —
+plus [`real_world_adult.ipynb`](examples/real_world_adult.ipynb), a notebook that
+applies QSA to the UCI Adult income dataset (with saved outputs so the results
+render on GitHub). All are described in [`examples/README.md`](examples/README.md):
 
 ```bash
 uv run python examples/quickstart.py
