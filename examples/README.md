@@ -18,7 +18,7 @@ open them with `jupyter lab` after installing the notebook extras
 | [`quickstart.py`](quickstart.py) | Minimal end-to-end flow: generate data → `data_split` → `QSA` → read the certified fairness bound. |
 | [`fairness_guarantee.py`](fairness_guarantee.py) | The one-sided guarantee: a fair dataset is certified, while an unfair one returns **No Solution Found**. |
 | [`custom_constraint.py`](custom_constraint.py) | Customizing `SeldonianConfig` — `delta`, the concentration `inequality`, `candidate_ratio`, and the postfix `constraint` string. |
-| [`real_world_adult.ipynb`](real_world_adult.ipynb) | A real dataset (UCI Adult income): an unconstrained model's true-positive-rate gap vs. QSA refusing to certify it. Ships with saved outputs so results render on GitHub; needs network access to re-run. |
+| [`real_world_adult.ipynb`](real_world_adult.ipynb) | A real dataset (UCI Adult income): an unconstrained model's demographic-parity gap vs. QSA refusing to certify it. Ships with saved outputs so results render on GitHub; needs network access to re-run. |
 | [`quickstart.ipynb`](quickstart.ipynb) | The full guided notebook: data generation, certification, fair vs. unfair, constraint decoding, all five algorithm variants, and accuracy-vs-fairness plots. |
 
 ## Notes
