@@ -1,12 +1,26 @@
 """Sphinx configuration for Fair-Seldonian documentation."""
 
 import os
+import shutil
 import sys
 from datetime import datetime
+from pathlib import Path
 
 sys.path.insert(0, os.path.abspath("../src"))
 
 import fair_seldonian
+
+# -- Vendor example notebooks -----------------------------------------------
+# The example notebooks live in ``examples/`` (outside the docs source tree).
+# Copy them into ``docs/examples/`` at build time so Sphinx can render them,
+# rather than committing duplicate copies. They ship with saved outputs and are
+# rendered without re-execution (see ``nb_execution_mode`` below).
+
+_docs_dir = Path(__file__).parent
+_examples_dst = _docs_dir / "examples"
+_examples_dst.mkdir(exist_ok=True)
+for _nb in sorted((_docs_dir.parent / "examples").glob("*.ipynb")):
+    shutil.copy2(_nb, _examples_dst / _nb.name)
 
 # -- Project information -----------------------------------------------------
 
@@ -26,14 +40,15 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.mathjax",
     "sphinx.ext.githubpages",
-    "myst_parser",
+    "myst_nb",
 ]
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 source_suffix = {
     ".rst": "restructuredtext",
-    ".md": "markdown",
+    ".md": "myst-nb",
+    ".ipynb": "myst-nb",
 }
 root_doc = "index"
 language = "en"
@@ -81,9 +96,20 @@ html_static_path = ["_static"]
 html_show_sourcelink = True
 html_show_copyright = True
 
-# -- MyST configuration -----------------------------------------------------
+# -- MyST / MyST-NB configuration -------------------------------------------
 
 myst_enable_extensions = [
     "colon_fence",
     "deflist",
+    "dollarmath",  # render $...$ and $$...$$ math in notebook/markdown cells
 ]
+
+# Render notebooks from their saved outputs; never execute at build time. The
+# example notebooks require network access and heavy computation to run, and are
+# committed with outputs already saved.
+nb_execution_mode = "off"
+
+# The notebooks link to sibling files in the repo's ``examples/`` dir (e.g.
+# ``custom_constraint.py``) with relative paths that resolve on GitHub/nbviewer
+# but not inside the rendered docs. Don't fail the build over those.
+suppress_warnings = ["myst.xref_missing"]

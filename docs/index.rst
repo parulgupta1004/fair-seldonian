@@ -42,6 +42,12 @@ never an unsafe model.
 
 .. toctree::
    :maxdepth: 2
+   :caption: Examples
+
+   examples/index
+
+.. toctree::
+   :maxdepth: 2
    :caption: Algorithm Details
 
    theory
