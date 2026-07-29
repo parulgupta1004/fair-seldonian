@@ -1,16 +1,28 @@
 [project]
 name = "fair-seldonian"
 dynamic = ["version"]
-description = "Fairness-constrained machine learning using Seldonian algorithms with confidence bound optimizations"
+description = "Fair-Seldonian: a Python library for building machine learning models with probabilistic fairness and safety guarantees."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
 authors = [
     { name = "Parul Gupta" },
 ]
-keywords = ["fairness", "seldonian", "machine-learning", "safety", "constraints"]
+keywords = [
+    "fairness",
+    "fair-machine-learning",
+    "responsible-ai",
+    "seldonian",
+    "machine-learning",
+    "artificial-intelligence",
+    "ai-safety",
+    "safety",
+    "constrained-optimization",
+    "constraints",
+    "reinforcement-learning",
+]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -20,6 +32,8 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Mathematics",
 ]
 dependencies = [
     # The ``python_version>='3.14'`` floors are the first release of each package
