@@ -1,8 +1,22 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "Fair Seldonian Framework"
+title: "Fair-Seldonian"
 type: software
 authors:
   - family-names: Gupta
     given-names: Parul
-year: 2020
+version: 3.0.0
+date-released: 2020-09-08
+license: MIT
+repository-code: "https://github.com/parulgupta1004/fair-seldonian"
+url: "https://parulgupta1004.github.io/fair-seldonian/"
+abstract: "Fair-Seldonian: a Python library for building machine learning models with probabilistic fairness and safety guarantees."
+keywords:
+  - fairness
+  - fair-machine-learning
+  - responsible-ai
+  - seldonian
+  - machine-learning
+  - ai-safety
+  - constrained-optimization
+  - reinforcement-learning
