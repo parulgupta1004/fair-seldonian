@@ -1,10 +1,12 @@
 import pandas as pd
+import pytest
 import torch
 
 from fair_seldonian.constraints.expression_tree import (
     construct_expr_tree_base,
     eval_expr_tree_base,
     eval_expr_tree_conf_interval_base,
+    inorder,
     is_func,
     is_mod,
     is_operator,
@@ -56,6 +58,12 @@ def test_complex_tree() -> None:
     assert t.value == "-" and t.left.value == "abs" and t.right.value == "*"
 
 
+def test_inorder_traversal_smoke() -> None:
+    # inorder just logs each node; exercise it over a non-trivial tree (and None).
+    inorder(construct_expr_tree_base("TP(1) TP(0) - abs 0.25 TP(1) * -"))
+    inorder(None)
+
+
 def test_eval() -> None:
     Y, pred, T = _data()
     result = eval_expr_tree_base(construct_expr_tree_base("TP(1) TP(0) -"), Y, pred, T)
@@ -73,6 +81,40 @@ def test_eval_abs() -> None:
 def test_eval_constant() -> None:
     Y, pred, T = _data()
     assert eval_expr_tree_base(construct_expr_tree_base("0.5"), Y, pred, T) == 0.5
+
+
+def test_eval_multiply_power_divide() -> None:
+    Y, pred, T = _data()
+    tp1 = eval_expr_tree_base(construct_expr_tree_base("TP(1)"), Y, pred, T)
+    assert tp1 is not None
+    tp1 = float(tp1)
+
+    product = eval_expr_tree_base(construct_expr_tree_base("TP(1) 2 *"), Y, pred, T)
+    power = eval_expr_tree_base(construct_expr_tree_base("TP(1) 2 ^"), Y, pred, T)
+    quotient = eval_expr_tree_base(construct_expr_tree_base("TP(1) 2 /"), Y, pred, T)
+
+    assert product is not None and float(product) == pytest.approx(2 * tp1)
+    assert power is not None and float(power) == pytest.approx(tp1**2)
+    assert quotient is not None and float(quotient) == pytest.approx(tp1 / 2)
+
+
+def test_conf_interval_with_division_and_abs() -> None:
+    # A ratio (division) wrapped in abs, with a constant subtraction, exercises the
+    # division and abs branches of the confidence-bound evaluation.
+    Y, pred, T = _data()
+    lo, hi = eval_expr_tree_conf_interval_base(
+        construct_expr_tree_base("TP(1) TP(1) FN(1) + / abs 0.1 -"),
+        Y,
+        pred,
+        T,
+        0.05,
+        Inequality.HOEFFDING_INEQUALITY,
+        1,
+        True,
+        False,
+    )
+    assert lo is not None and hi is not None
+    assert float(lo) <= float(hi)
 
 
 def test_hoeffding_interval() -> None:
