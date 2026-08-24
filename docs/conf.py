@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, os.path.abspath("../src"))
+sys.path.insert(0, os.path.abspath("_ext"))
 
 import fair_seldonian
 
@@ -43,6 +44,7 @@ extensions = [
     "myst_nb",
     "sphinx_design",
     "sphinx_copybutton",
+    "fair_seldonian_docs",
 ]
 
 templates_path = ["_templates"]

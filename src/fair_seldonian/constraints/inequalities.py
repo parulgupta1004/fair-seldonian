@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import threading
+from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -300,6 +301,63 @@ class Inequality(Enum):
     HOEFFDING_INEQUALITY = 2
     EMPIRICAL_BERNSTEIN = 3
     BETTING = 4
+
+
+@dataclass(frozen=True)
+class InequalityInfo:
+    """What an :class:`Inequality` assumes and what it therefore guarantees.
+
+    Held beside the enum rather than written into the documentation, because the
+    documentation's comparison table is generated from it: adding a member
+    without describing it here fails ``tests/test_docs_sync.py``.
+    """
+
+    assumption: str
+    distribution_free: bool
+    summary: str
+
+
+#: Per-member metadata, keyed by :class:`Inequality`. The docs render this table.
+INEQUALITY_INFO: dict[Inequality, InequalityInfo] = {
+    Inequality.HOEFFDING_INEQUALITY: InequalityInfo(
+        assumption="each term lies in [0, 1]",
+        distribution_free=True,
+        summary=(
+            "The default. Assumes the worst possible variance, 1/4, so it is exactly "
+            "right at a base rate of 1/2 and increasingly pessimistic away from it."
+        ),
+    ),
+    Inequality.EMPIRICAL_BERNSTEIN: InequalityInfo(
+        assumption="each term lies in [0, 1]",
+        distribution_free=True,
+        summary=(
+            "Pays for the variance it measures rather than the worst case, plus an "
+            "additive term for having estimated that variance from the same sample. "
+            "Tighter than Hoeffding whenever the sample variance is below 1/4, and "
+            "slightly looser at exactly 1/2."
+        ),
+    ),
+    Inequality.BETTING: InequalityInfo(
+        assumption="each term lies in [0, 1]",
+        distribution_free=True,
+        summary=(
+            "Inverts a betting martingale test via Ville's inequality. Adapts to the "
+            "observed variance like empirical Bernstein without paying the additive "
+            "penalty, so it dominates the other two for bounded variables. Locating "
+            "each endpoint takes repeated passes over the data."
+        ),
+    ),
+    Inequality.T_TEST: InequalityInfo(
+        assumption="the sample mean is approximately normal",
+        distribution_free=False,
+        summary=(
+            "An appeal to the central limit theorem rather than a finite-sample "
+            "bound, which is what makes the result *quasi*-Seldonian. Included "
+            "because the reference work uses it; prefer one of the three above for "
+            "any claim that has to hold."
+        ),
+    ),
+}
 
 
 def _log_term(delta: float, two_sided: bool) -> float:

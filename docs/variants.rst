@@ -6,31 +6,11 @@ The framework implements several optimizations to the base Seldonian algorithm
 and objective performance. Each variant can be selected via the
 ``seldonian_type`` argument.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 12 35 53
+This axis is independent of the :doc:`confidence inequality <inequalities>`: the
+inequality sets how wide a single interval is, the variant sets how the intervals
+are combined. Every pairing is accepted.
 
-   * - Mode
-     - Name
-     - Key Idea
-   * - ``base``
-     - Baseline QSA
-     - Uniform :math:`\delta/2` splitting, standard Hoeffding bound
-   * - ``mod``
-     - Modified Confidence Interval
-     - Decomposes candidate and safety estimation error
-   * - ``const``
-     - Constant-Aware Allocation
-     - Skips delta splitting for constant nodes
-   * - ``bound``
-     - Union Bound Optimization
-     - Combines delta for repeated leaf nodes
-   * - ``opt``
-     - All Optimizations
-     - Combines ``mod``, ``const``, and ``bound``
-   * - ``affine``
-     - Affine-Form Compilation
-     - One interval per affine form, exploiting independence across groups
+.. fs-variant-table::
 
 .. _variant-base:
 
