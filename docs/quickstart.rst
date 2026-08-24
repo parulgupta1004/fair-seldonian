@@ -142,10 +142,23 @@ To use a custom model, replace the following functions in
   :math:`P(Y=1 \mid X, \theta)` as a tensor.
 - :func:`~fair_seldonian.models.logistic_regression.simple_logistic` — trains the
   base model and returns initial parameter values.
-- :func:`~fair_seldonian.models.logistic_regression.fHat` — computes the primary
+- :func:`~fair_seldonian.models.logistic_regression.f_hat` — computes the primary
   objective function.
 
 The constraint expression (``constraint`` field on
 :class:`~fair_seldonian.config.SeldonianConfig`) can be set to any fairness
-condition expressible in terms of ``TP``, ``FP``, ``TN``, ``FN`` rates across
-groups.
+condition expressible over the base variables, of which there are three kinds:
+
+- **Cells** — ``TP(g)``, ``FP(g)``, ``TN(g)``, ``FN(g)``: joint probabilities
+  within group ``g``, so ``TP(g)`` is :math:`P(\hat{Y}=1, Y=1 \mid G=g)` and the
+  four sum to 1.
+- **Label-conditioned rates** — ``TPR(g)``, ``FPR(g)``, ``TNR(g)``, ``FNR(g)``:
+  additionally conditioned on the true label, so ``TPR(g)`` is
+  :math:`P(\hat{Y}=1 \mid Y=1, G=g)`, averaged over only that group's positive
+  rows.
+- **Predicted rates** — ``PR(g)``, ``NR(g)``: the label is irrelevant, so
+  ``PR(g)`` is :math:`P(\hat{Y}=1 \mid G=g)`, equal to ``TP(g) + FP(g)``.
+
+The distinction matters: a constraint over cells and one over rates express
+different fairness definitions and are certified from different row counts. See
+:doc:`fairness_constraints` for the built-in builders.

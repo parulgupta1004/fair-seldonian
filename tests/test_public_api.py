@@ -1,18 +1,23 @@
 """Guards on what the package exposes and what the docs claim it exposes.
 
-Two failures this suite could not previously see:
+Three failures this suite could not previously see:
 
-* Nothing else in this repo imports from ``fair_seldonian`` directly -- the
-  tests and examples reach into the submodules -- so dropping a name from an
-  ``__init__`` breaks downstream code without breaking anything here.
 * A module can be complete, tested and reachable only by its full dotted path.
   ``constraints.affine`` shipped that way -- absent from every ``__init__`` and
   from the Sphinx API reference, so nothing but the source tree revealed it.
+* A ``:func:`` cross-reference to a renamed function degrades to plain text
+  rather than an error. ``conf.py`` sets ``suppress_warnings`` for missing
+  MyST xrefs and nitpicky mode is off, so even ``sphinx-build -W`` stays green
+  while the docs point at a name that no longer exists (``fHat`` did, for
+  several releases).
+* Dropping a name from an ``__init__`` breaks downstream imports without
+  breaking anything in this repo, which imports from the submodules.
 """
 
 from __future__ import annotations
 
 import ast
+import importlib
 import pkgutil
 import re
 from pathlib import Path
@@ -128,6 +133,54 @@ def test_every_public_module_is_in_the_api_reference() -> None:
         f"public modules absent from docs/api/: {missing}. "
         "Add an automodule directive so they appear in the API reference."
     )
+
+
+def _doc_cross_references() -> list[tuple[Path, str]]:
+    """``:func:`fair_seldonian.x.y``` style targets across the prose docs."""
+    pattern = re.compile(
+        r":(?:mod|class|func|attr|meth|data|exc):`~?([A-Za-z_][\w.]*)`"
+    )
+    refs = []
+    for path in sorted([*DOCS.glob("*.rst"), *DOCS.glob("*.md")]):
+        for target in pattern.findall(path.read_text()):
+            if target.startswith("fair_seldonian"):
+                refs.append((path, target))
+    return refs
+
+
+def test_doc_cross_references_resolve() -> None:
+    """Every ``fair_seldonian.*`` target the docs name must actually exist.
+
+    Sphinx will not tell us: an unresolved Python xref renders as plain text,
+    and the docs build passes even under ``-W``.
+    """
+    broken = []
+    for path, target in _doc_cross_references():
+        parts = target.split(".")
+        obj = None
+        for i in range(len(parts), 0, -1):
+            try:
+                obj = importlib.import_module(".".join(parts[:i]))
+            except ModuleNotFoundError:
+                continue
+            rest = parts[i:]
+            break
+        else:
+            broken.append(f"{path.name}: {target} (no such module)")
+            continue
+        for attr in rest:
+            if not hasattr(obj, attr):
+                broken.append(f"{path.name}: {target} (no attribute {attr!r})")
+                break
+            obj = getattr(obj, attr)
+    assert not broken, "docs reference names that do not exist:\n  " + "\n  ".join(
+        broken
+    )
+
+
+def test_doc_cross_reference_scan_finds_something() -> None:
+    """Stop the check above from passing because the regex matched nothing."""
+    assert len(_doc_cross_references()) >= 5
 
 
 @pytest.mark.parametrize(
