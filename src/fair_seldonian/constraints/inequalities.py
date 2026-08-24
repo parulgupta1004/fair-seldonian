@@ -125,10 +125,17 @@ def eval_func_bound(
     candidate_safety_ratio: float | None,
     predict_bound: bool,
     modified_h: bool,
+    two_sided: bool = True,
 ) -> tuple[Bound, Bound]:
     """Confidence interval for a single base variable.
 
     :param delta: failure probability budget allocated to this node.
+    :param two_sided: whether the caller consumes *both* endpoints. A symmetric
+        interval that must cover on both sides needs ``ln(2/delta)``; one that is
+        only ever read from above needs ``ln(1/delta)``. Defaults to ``True``,
+        which is always sound: passing ``False`` when the lower endpoint is in
+        fact used would silently double the true failure probability, so a caller
+        must be able to show structurally that it never reads that endpoint.
     """
     x = contributions(element, Y, predicted_Y, T)
     n = int(x.numel())
@@ -148,16 +155,18 @@ def eval_func_bound(
             assert candidate_safety_ratio is not None
             safety_size = candidate_safety_ratio * n
             if modified_h:
-                return predict_hoeffding_modified(estimate, safety_size, n, delta)
-            return predict_hoeffding(estimate, safety_size, delta)
-        return eval_hoeffding(estimate, n, delta)
+                return predict_hoeffding_modified(
+                    estimate, safety_size, n, delta, two_sided
+                )
+            return predict_hoeffding(estimate, safety_size, delta, two_sided)
+        return eval_hoeffding(estimate, n, delta, two_sided)
 
     if inequality == Inequality.T_TEST:
         std = float(x.detach().std(unbiased=True))
         if predict_bound:
             assert candidate_safety_ratio is not None
             return predict_t_test(estimate, std, candidate_safety_ratio * n, delta)
-        return eval_t_test(estimate, std, n, delta)
+        return eval_t_test(estimate, std, n, delta, two_sided)
 
     raise ValueError(f"Unknown inequality: {inequality!r}")
 
@@ -178,47 +187,66 @@ class Inequality(Enum):
     HOEFFDING_INEQUALITY = 2
 
 
+def _log_term(delta: float, two_sided: bool) -> float:
+    """``ln(2/delta)`` for a two-sided interval, ``ln(1/delta)`` for one-sided.
+
+    A symmetric ``estimate +/- w`` interval fails if *either* side is breached, so
+    the budget must be split between them. Using ``ln(1/delta)`` for a two-sided
+    interval delivers coverage ``1 - 2*delta``, not ``1 - delta``.
+    """
+    return math.log((2.0 if two_sided else 1.0) / delta)
+
+
 #############
 # Hoeffding #
 #############
 def eval_hoeffding(
-    estimate: Bound, num_of_elements: float, delta: float
+    estimate: Bound, num_of_elements: float, delta: float, two_sided: bool = True
 ) -> tuple[Bound, Bound]:
     """Hoeffding interval for a mean of ``num_of_elements`` i.i.d. terms in [0, 1]."""
-    int_size = math.sqrt(math.log(1 / delta) / (2 * num_of_elements))
+    int_size = math.sqrt(_log_term(delta, two_sided) / (2 * num_of_elements))
     return estimate - int_size, estimate + int_size
 
 
 def predict_hoeffding(
-    estimate: Bound, safety_size: float, delta: float
+    estimate: Bound, safety_size: float, delta: float, two_sided: bool = True
 ) -> tuple[Bound, Bound]:
     """Candidate-selection *prediction* of the safety-test interval.
 
     This is a heuristic, not a bound: it guesses whether the safety test will pass
     so that candidate selection can avoid proposing solutions that would be
     rejected. It carries no guarantee and needs none - the safety test supplies the
-    guarantee on its own.
+    guarantee on its own. (It could not be a bound in any case: ``theta_c`` is
+    chosen by optimizing on the candidate data, so the candidate-set estimate is
+    not unbiased and pointwise concentration does not apply.)
 
     Following Thomas et al. (2019), the safety-set interval is inflated by 2 to
     stay conservative.
     """
-    int_size = 2 * math.sqrt(math.log(1 / delta) / (2 * safety_size))
+    int_size = 2 * math.sqrt(_log_term(delta, two_sided) / (2 * safety_size))
     return estimate - int_size, estimate + int_size
 
 
 def predict_hoeffding_modified(
-    estimate: Bound, num_of_elements: float, safety_size: float, delta: float
+    estimate: Bound,
+    safety_size: float,
+    candidate_size: float,
+    delta: float,
+    two_sided: bool = True,
 ) -> tuple[Bound, Bound]:
     """Split the prediction into candidate error and safety-set width.
 
     Replaces the blanket factor of 2 in :func:`predict_hoeffding` with the sum of a
     term for the candidate-set estimation error and a term for the safety-set
-    interval. Like :func:`predict_hoeffding` this is a heuristic and affects only
-    which candidates are proposed.
+    interval. With a 60:40 candidate:safety split the factor becomes
+    ``1 + sqrt(0.4/0.6) = 1.82`` rather than 2, so it is a mild relaxation - and it
+    matters more the more lopsided the split is. Like :func:`predict_hoeffding`
+    this is a heuristic and affects only which candidates are proposed.
     """
-    constant_term1 = math.sqrt(math.log(1 / delta) / (2 * num_of_elements))
-    constant_term2 = math.sqrt(math.log(1 / delta) / (2 * safety_size))
-    int_size = constant_term1 + constant_term2
+    log_term = _log_term(delta, two_sided)
+    int_size = math.sqrt(log_term / (2 * safety_size)) + math.sqrt(
+        log_term / (2 * candidate_size)
+    )
     return estimate - int_size, estimate + int_size
 
 
@@ -226,10 +254,17 @@ def predict_hoeffding_modified(
 # t-test #
 ##########
 def eval_t_test(
-    estimate: Bound, std: float, num_of_elements: float, delta: float
+    estimate: Bound,
+    std: float,
+    num_of_elements: float,
+    delta: float,
+    two_sided: bool = True,
 ) -> tuple[Bound, Bound]:
     """Student's t interval. ``std`` is the unbiased sample standard deviation."""
-    t = float(stats.t.ppf(1 - delta, num_of_elements - 1))
+    if num_of_elements < 2:
+        return -math.inf, math.inf
+    tail = delta / 2.0 if two_sided else delta
+    t = float(stats.t.ppf(1 - tail, num_of_elements - 1))
     int_size = (std / math.sqrt(num_of_elements)) * t
     return estimate - int_size, estimate + int_size
 
@@ -238,6 +273,8 @@ def predict_t_test(
     estimate: Bound, std: float, safety_size: float, delta: float
 ) -> tuple[Bound, Bound]:
     """Candidate-selection prediction of the t-test safety interval."""
-    t = float(stats.t.ppf(1 - delta, safety_size - 1))
+    if safety_size < 2:
+        return -math.inf, math.inf
+    t = float(stats.t.ppf(1 - delta / 2.0, safety_size - 1))
     int_size = 2 * (std / math.sqrt(safety_size)) * t
     return estimate - int_size, estimate + int_size

@@ -49,14 +49,26 @@ def test_predict_wider_than_eval() -> None:
 
 
 def test_modified_tighter() -> None:
+    # predict_hoeffding_modified(estimate, safety_size, candidate_size, delta)
     _, hi_std = predict_hoeffding(0.5, 100, 0.05)
-    _, hi_mod = predict_hoeffding_modified(0.5, 200, 100, 0.05)
+    _, hi_mod = predict_hoeffding_modified(0.5, 100, 200, 0.05)
     assert hi_mod < hi_std
 
 
 def test_ttest_zero_variance() -> None:
     lo, hi = eval_t_test(0.5, 0.0, 100, 0.05)
     assert lo == 0.5 and hi == 0.5
+
+
+def test_hoeffding_two_sided_is_wider_than_one_sided() -> None:
+    # A symmetric interval fails if either side is breached, so it must be built
+    # from ln(2/delta), not ln(1/delta). Using the one-sided tail for a two-sided
+    # interval silently delivers coverage 1 - 2*delta.
+    _, hi_two = eval_hoeffding(0.5, 100, 0.05, two_sided=True)
+    _, hi_one = eval_hoeffding(0.5, 100, 0.05, two_sided=False)
+    assert hi_two > hi_one
+    assert abs((hi_two - 0.5) - math.sqrt(math.log(2 / 0.05) / 200)) < 1e-12
+    assert abs((hi_one - 0.5) - math.sqrt(math.log(1 / 0.05) / 200)) < 1e-12
 
 
 def test_estimate_range() -> None:
@@ -169,6 +181,6 @@ def test_sample_size_is_group_size_not_global_positive_count() -> None:
         "TP(1)", Y, pred, T, 0.05, Inequality.HOEFFDING_INEQUALITY, None, False, False
     )
     expected = float(eval_estimate("TP(1)", Y, pred, T)) + math.sqrt(
-        math.log(1 / 0.05) / (2 * 2)
+        math.log(2 / 0.05) / (2 * 2)
     )
     assert abs(hi - expected) < 1e-12
