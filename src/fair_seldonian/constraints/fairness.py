@@ -86,13 +86,24 @@ def _positive_rate(g: str) -> str:
 
 
 def _true_positive_rate(g: str) -> str:
-    """True-positive rate (recall) for group ``g``:  ``TP(g) / (TP(g) + FN(g))``."""
-    return f"TP({g}) TP({g}) FN({g}) + /"
+    """True-positive rate (recall) for group ``g``:  ``TPR(g)``.
+
+    Written as a primitive rather than as ``TP(g) / (TP(g) + FN(g))``. The two
+    denote the same quantity, but ``TPR(g)`` is a single base variable - a mean
+    over the rows of group ``g`` with ``Y = 1``, carrying its own sample size -
+    whereas the ratio form needs a division. Division puts the constraint outside
+    the affine fragment and forces interval arithmetic, which on equalized odds
+    roughly doubles the slack.
+    """
+    return f"TPR({g})"
 
 
 def _false_positive_rate(g: str) -> str:
-    """False-positive rate for group ``g``:  ``FP(g) / (FP(g) + TN(g))``."""
-    return f"FP({g}) FP({g}) TN({g}) + /"
+    """False-positive rate for group ``g``:  ``FPR(g)``.
+
+    A primitive for the same reason as :func:`_true_positive_rate`.
+    """
+    return f"FPR({g})"
 
 
 def _error_rate(g: str) -> str:

@@ -37,13 +37,20 @@ def is_mod(element: str) -> bool:
     return element == "abs"
 
 
+#: Base-variable prefixes. Rates are listed before cells so that ``TPR`` is not
+#: matched as ``TP`` followed by a stray character.
+BASE_MEASURES = ("TPR", "FPR", "TNR", "FNR", "TP", "FP", "TN", "FN")
+
+
 def is_func(element: str) -> bool:
-    return element.startswith(("FP", "FN", "TP", "TN"))
+    head, sep, _ = element.partition("(")
+    return bool(sep) and head in BASE_MEASURES
 
 
-# A well-formed group-rate token: TP/FP/TN/FN followed by a parenthesised group
-# label containing no spaces or nested parentheses, e.g. ``TP(1)`` or ``FP(Male)``.
-_FUNC_TOKEN_RE = re.compile(r"^(?:TP|FP|TN|FN)\([^()\s]+\)$")
+# A well-formed base-variable token: a cell or rate measure followed by a
+# parenthesised group label containing no spaces or nested parentheses, e.g.
+# ``TP(1)``, ``FP(Male)`` or ``TPR(0)``.
+_FUNC_TOKEN_RE = re.compile(r"^(?:TPR|FPR|TNR|FNR|TP|FP|TN|FN)\([^()\s]+\)$")
 
 
 def validate_constraint(rev_polish_notation: str) -> None:

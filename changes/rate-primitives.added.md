@@ -1,0 +1,1 @@
+Added `TPR`, `FPR`, `TNR` and `FNR` as base variables alongside the `TP`/`FP`/`TN`/`FN` cells. A cell is a fraction of the whole group; a rate is a mean over its label-conditioned subset and carries its own, smaller sample size. Writing rates as primitives removes the division that would otherwise push a constraint outside the affine fragment. by @parulgupta1004

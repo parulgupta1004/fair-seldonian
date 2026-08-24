@@ -265,3 +265,25 @@ def test_trials_with_different_seeds_are_independent_draws() -> None:
     a = get_data(1_000, 5, 0.5, 0.4, 0.6, random_seed=0.1)
     b = get_data(1_000, 5, 0.5, 0.4, 0.6, random_seed=0.2)
     assert not np.array_equal(np.asarray(a.iloc[:, 0]), np.asarray(b.iloc[:, 0]))
+
+
+# --------------------------------------------------------------------------
+# Rate primitives
+# --------------------------------------------------------------------------
+def test_rate_primitive_uses_its_own_conditioning_set() -> None:
+    """``TPR(g)`` is a mean over ``{T=g, Y=1}``; ``TP(g)`` over all of ``{T=g}``.
+
+    The distinction sets the sample size an inequality may use. Conflating them
+    is the same class of error as
+    :func:`test_interval_covers_on_a_small_minority_group`.
+    """
+    from fair_seldonian.constraints.inequalities import conditioning_set, contributions
+
+    Y = pd.Series([1, 1, 0, 0, 0])
+    T = pd.Series(["g", "g", "g", "g", "g"])
+    pred = torch.tensor([0.9, 0.7, 0.4, 0.2, 0.1], dtype=torch.float64)
+    assert conditioning_set("TPR(g)") == ("g", 1)
+    assert conditioning_set("TP(g)") == ("g", None)
+    assert int(contributions("TPR(g)", Y, pred, T).numel()) == 2  # the Y=1 rows
+    assert int(contributions("TP(g)", Y, pred, T).numel()) == 5  # the whole group
+    assert abs(float(contributions("TPR(g)", Y, pred, T).mean()) - 0.8) < 1e-12

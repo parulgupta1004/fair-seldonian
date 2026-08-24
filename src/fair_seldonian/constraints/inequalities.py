@@ -61,9 +61,27 @@ def group_mask(T: Array, group: str) -> Array:
 
 
 def parse_base_token(element: str) -> tuple[str, str]:
-    """Split ``"TP(A)"`` into ``("TP", "A")``."""
+    """Split ``"TPR(F)"`` into ``("TPR", "F")``."""
     head, _, rest = element.partition("(")
     return head, rest[:-1]
+
+
+def conditioning_set(element: str) -> tuple[str, int | None]:
+    r"""Which rows a base variable is a mean over.
+
+    A cell such as ``TP(g)`` is a fraction of the whole of group ``g``: every row
+    of the group contributes, rows with the wrong label contributing zero. A rate
+    such as ``TPR(g)`` is a mean over only the rows of group ``g`` with
+    :math:`Y = 1`. The distinction sets the sample size an inequality may use, and
+    it decides which base variables are independent of one another: two variables
+    are independent exactly when their conditioning sets are disjoint.
+    """
+    measure, group = parse_base_token(element)
+    if measure in ("TPR", "FNR"):
+        return group, 1
+    if measure in ("FPR", "TNR"):
+        return group, 0
+    return group, None
 
 
 def contributions(
@@ -113,6 +131,16 @@ def contributions(
         return (1 - probs) * (labels == 0)
     if measure == "FN":  # predicted 0, actually 1
         return (1 - probs) * (labels == 1)
+    # Rates condition on the label, so they are means over a subset of the group
+    # and carry their own, smaller sample size.
+    if measure == "TPR":
+        return probs[labels == 1]
+    if measure == "FNR":
+        return (1 - probs)[labels == 1]
+    if measure == "FPR":
+        return probs[labels == 0]
+    if measure == "TNR":
+        return (1 - probs)[labels == 0]
     raise ValueError(f"Unknown constraint variable: {element!r}")
 
 
