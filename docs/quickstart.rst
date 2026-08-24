@@ -106,13 +106,14 @@ The framework can also be used programmatically:
        frac=0.5, all_data=data, random_state=1, m_test=0.2)
 
    # Run the Quasi-Seldonian Algorithm with all optimizations
-   theta, theta1, passed = QSA(
+   result = QSA(
        X_train, Y_train, T_train,
        seldonian_type="opt",
        init_sol=None, init_sol1=None,
    )
+   theta, theta1 = result.theta, result.theta1
 
-   if passed:
+   if result.passed_safety:
        # Evaluate the constraint on held-out test data
        violation = eval_ghat(theta, theta1,
                              X_test, Y_test, T_test, "opt")
@@ -166,7 +167,7 @@ a relaxed equalized opportunity condition (see :doc:`intro` for details).
        candidate_ratio=0.5,
    )
 
-   theta, theta1, passed = QSA(
+   result = QSA(
        X_train, Y_train, T_train,
        seldonian_type="opt",
        init_sol=None, init_sol1=None,

@@ -57,12 +57,13 @@ data = get_data(N=10000, features=5, t_ratio=0.4,
 X_te, Y_te, T_te, X_tr, Y_tr, T_tr = data_split(
     frac=0.5, all_data=data, random_state=1, m_test=0.2)
 
-theta, theta1, passed = QSA(X_tr, Y_tr, T_tr, "opt", None, None)
+result = QSA(X_tr, Y_tr, T_tr, "opt", None, None)
 
-if passed:
+if result.passed_safety:
+    theta, theta1 = result.theta, result.theta1
     print("Upper bound:", eval_ghat(theta, theta1, X_te, Y_te, T_te, "opt"))
 else:
-    print("No Solution Found")
+    print("No Solution Found:", result.diagnostics.failure_mode)
 ```
 
 **Custom configuration:**
@@ -72,7 +73,7 @@ from fair_seldonian.config import SeldonianConfig
 from fair_seldonian.constraints.inequalities import Inequality
 
 config = SeldonianConfig(delta=0.01, inequality=Inequality.T_TEST, candidate_ratio=0.5)
-theta, theta1, passed = QSA(X_tr, Y_tr, T_tr, "opt", None, None, config)
+result = QSA(X_tr, Y_tr, T_tr, "opt", None, None, config)
 ```
 
 **Built-in fairness constraints:**

@@ -14,9 +14,9 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install ruff isort
-      - run: ruff check src/ tests/
-      - run: ruff format --check src/ tests/
-      - run: isort --check src/ tests/
+      - run: ruff check src/ tests/ scripts/ examples/
+      - run: ruff format --check src/ tests/ scripts/ examples/
+      - run: isort --check src/ tests/ scripts/ examples/
 
   test:
     runs-on: ubuntu-latest

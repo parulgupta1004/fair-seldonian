@@ -12,6 +12,8 @@ it is, so that none of them is later "fixed" by relaxing it.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -20,13 +22,23 @@ from sklearn.metrics import log_loss
 
 from fair_seldonian.algorithms.qsa import cand_obj, split_candidate_safety
 from fair_seldonian.config import SeldonianConfig
+from fair_seldonian.constraints.affine import affine_upper_bound, compile_bounds
+from fair_seldonian.constraints.expression_tree import (
+    ROOT_SIDES,
+    child_sides,
+    construct_expr_tree_base,
+    eval_expr_tree_base,
+)
+from fair_seldonian.constraints.expression_tree_ext import construct_expr_tree
 from fair_seldonian.constraints.inequalities import (
     Inequality,
     check_constraint_groups,
     eval_func_bound,
 )
 from fair_seldonian.data.synthetic import get_data
-from fair_seldonian.models.logistic_regression import f_hat
+from fair_seldonian.models.logistic_regression import eval_ghat, f_hat, predict
+
+PAPER_CONSTRAINT = "TP(1) TP(0) - abs 0.2 TP(1) * -"
 
 
 # --------------------------------------------------------------------------
@@ -67,8 +79,11 @@ def _empirical_coverage(
     return hits / trials
 
 
-def test_interval_covers_on_a_small_minority_group() -> None:
-    """The distribution-free interval must cover a minority group's value.
+@pytest.mark.parametrize(
+    "inequality", [Inequality.HOEFFDING_INEQUALITY, Inequality.EMPIRICAL_BERNSTEIN]
+)
+def test_interval_covers_on_a_small_minority_group(inequality: Inequality) -> None:
+    """The distribution-free intervals must cover a minority group's value.
 
     This is the assertion the whole guarantee rests on. Building the interval from
     ``#{Y == 1}`` across *all* groups while the estimate divides by the size of one
@@ -77,9 +92,7 @@ def test_interval_covers_on_a_small_minority_group() -> None:
     balanced benchmark cannot detect it, because there the two counts coincide
     numerically.
     """
-    assert (
-        _empirical_coverage(20_000, 500, 0.3, Inequality.HOEFFDING_INEQUALITY) >= 0.95
-    )
+    assert _empirical_coverage(20_000, 500, 0.3, inequality) >= 0.95
 
 
 def test_interval_width_scales_with_group_size_not_dataset_size() -> None:
@@ -265,3 +278,359 @@ def test_trials_with_different_seeds_are_independent_draws() -> None:
     a = get_data(1_000, 5, 0.5, 0.4, 0.6, random_seed=0.1)
     b = get_data(1_000, 5, 0.5, 0.4, 0.6, random_seed=0.2)
     assert not np.array_equal(np.asarray(a.iloc[:, 0]), np.asarray(b.iloc[:, 0]))
+
+
+# --------------------------------------------------------------------------
+# Rate primitives
+# --------------------------------------------------------------------------
+def test_rate_primitive_uses_its_own_conditioning_set() -> None:
+    """``TPR(g)`` is a mean over ``{T=g, Y=1}``; ``TP(g)`` over all of ``{T=g}``.
+
+    The distinction sets the sample size an inequality may use. Conflating them
+    is the same class of error as
+    :func:`test_interval_covers_on_a_small_minority_group`.
+    """
+    from fair_seldonian.constraints.inequalities import conditioning_set, contributions
+
+    Y = pd.Series([1, 1, 0, 0, 0])
+    T = pd.Series(["g", "g", "g", "g", "g"])
+    pred = torch.tensor([0.9, 0.7, 0.4, 0.2, 0.1], dtype=torch.float64)
+    assert conditioning_set("TPR(g)") == ("g", 1)
+    assert conditioning_set("TP(g)") == ("g", None)
+    assert int(contributions("TPR(g)", Y, pred, T).numel()) == 2  # the Y=1 rows
+    assert int(contributions("TP(g)", Y, pred, T).numel()) == 5  # the whole group
+    assert abs(float(contributions("TPR(g)", Y, pred, T).mean()) - 0.8) < 1e-12
+
+
+# --------------------------------------------------------------------------
+# Betting interval
+# --------------------------------------------------------------------------
+@pytest.mark.parametrize("p_true", [0.5, 0.12, 0.03])
+def test_betting_interval_covers(p_true: float) -> None:
+    """The betting interval must deliver at least its nominal coverage.
+
+    It is the tightest bound we ship, so it is also the one where an error would
+    be least likely to show up as anything other than an over-confident result.
+    """
+    from fair_seldonian.constraints.inequalities import betting_interval
+
+    rng = np.random.default_rng(11)
+    hits = 0
+    trials = 200
+    for _ in range(trials):
+        x = rng.binomial(1, p_true, 400).astype(float)
+        lo, hi = betting_interval(x, 0.05, two_sided=True)
+        hits += lo <= p_true <= hi
+    assert hits / trials >= 0.95
+
+
+def test_betting_beats_hoeffding_away_from_one_half() -> None:
+    """Betting adapts to the observed spread; Hoeffding assumes the worst case."""
+    from fair_seldonian.constraints.inequalities import betting_interval
+
+    rng = np.random.default_rng(5)
+    x = rng.binomial(1, 0.05, 2_000).astype(float)
+    lo, hi = betting_interval(x, 0.05, two_sided=True)
+    hoeffding = math.sqrt(math.log(2 / 0.05) / (2 * 2_000))
+    assert (hi - lo) / 2 < 0.6 * hoeffding
+
+
+# --------------------------------------------------------------------------
+# Delta accounting
+# --------------------------------------------------------------------------
+def test_root_is_one_sided_and_abs_forces_two_sided() -> None:
+    """Only the endpoints actually read should be paid for - and all of them must be."""
+    tree = construct_expr_tree_base(PAPER_CONSTRAINT)
+    left, right = child_sides(tree.value, ROOT_SIDES, tree.left.value, tree.right.value)
+    assert right == (True, False)  # L(0.2 * TP(1)) is what subtraction reads
+    abs_node = tree.left
+    below_abs, _ = child_sides(abs_node.value, left, abs_node.left.value, None)
+    assert below_abs == (True, True)  # abs reads both endpoints of its operand
+
+
+def test_error_rate_constraint_stays_one_sided_end_to_end() -> None:
+    tree = construct_expr_tree_base("FP(1) FN(1) + 0.1 -")
+    sides = {}
+
+    def walk(node, node_sides):
+        if node is None:
+            return
+        sides[node.value] = node_sides
+        ls, rs = child_sides(
+            node.value,
+            node_sides,
+            node.left.value if node.left else None,
+            node.right.value if node.right else None,
+        )
+        walk(node.left, ls)
+        walk(node.right, rs)
+
+    walk(tree, ROOT_SIDES)
+    assert sides["FP(1)"] == (False, True) and sides["FN(1)"] == (False, True)
+
+
+def test_union_bound_merge_gives_repeated_leaves_one_shared_interval() -> None:
+    """Merged occurrences must agree on delta *and* sidedness.
+
+    The merge is only sound if the repeated occurrences really are a single
+    interval. Two occurrences sharing a delta but differing in sidedness would be
+    two different widths, hence two failure events, doubling the true budget.
+    """
+    tree = construct_expr_tree(
+        PAPER_CONSTRAINT, 0.05, check_bound=True, check_constant=False
+    )
+    seen = []
+
+    def walk(node):
+        if node is None:
+            return
+        if node.value == "TP(1)":
+            seen.append((node.delta, node.sides))
+        walk(node.left)
+        walk(node.right)
+
+    walk(tree)
+    assert len(seen) > 1
+    assert len(set(seen)) == 1
+
+
+# --------------------------------------------------------------------------
+# Affine-form bounding
+# --------------------------------------------------------------------------
+def test_affine_compilation_of_the_paper_constraint() -> None:
+    upper, _ = compile_bounds(construct_expr_tree_base(PAPER_CONSTRAINT))
+    got = {tuple(sorted(form.coefficients.items())) for form in upper}
+    assert got == {
+        (("TP(0)", 1.0), ("TP(1)", -1.2)),
+        (("TP(0)", -1.0), ("TP(1)", 0.8)),
+    }
+
+
+def test_affine_bound_is_valid_and_tighter_than_tree_propagation() -> None:
+    """Affine bounding must still be an upper bound, and should be much tighter."""
+    config = SeldonianConfig(constraint=PAPER_CONSTRAINT, candidate_ratio=0.6)
+    data = get_data(40_000, 5, 0.5, 0.4, 0.6, random_seed=0.5)
+    X = np.asarray(data.iloc[:, :-2], dtype=float)
+    Y = np.asarray(data.iloc[:, -2])
+    T = np.asarray(data.iloc[:, -1])
+    theta = torch.tensor(np.array([0.8, 0.1, -0.1, 0.05, 0.3]))
+    theta1 = torch.tensor(np.array([-0.4]))
+
+    truth = float(
+        eval_expr_tree_base(
+            construct_expr_tree_base(PAPER_CONSTRAINT), Y, predict(theta, theta1, X), T
+        )
+    )
+    tree_bound = float(eval_ghat(theta, theta1, X, Y, T, "base", config))
+    affine_bound = float(eval_ghat(theta, theta1, X, Y, T, "affine", config))
+
+    assert affine_bound >= truth  # still an upper bound
+    assert affine_bound < tree_bound
+    # The whole point is that the gain is large, not marginal like the
+    # constant-skip and union-bound tweaks (both under 2% on this constraint).
+    assert (affine_bound - truth) < 0.75 * (tree_bound - truth)
+
+
+@pytest.mark.parametrize(
+    "inequality", [Inequality.HOEFFDING_INEQUALITY, Inequality.EMPIRICAL_BERNSTEIN]
+)
+def test_affine_bound_covers_the_true_constraint_value(inequality: Inequality) -> None:
+    """The affine bound must hold at its nominal rate, not merely at one point.
+
+    Affine bounding is the tightest path we ship, so it is the one where an
+    error would be least likely to look like anything other than a pleasingly
+    small number. Checking ``bound >= truth`` on a single dataset says almost
+    nothing; this repeats it and asserts the *rate*.
+
+    Two details make the check able to fail, which a coverage test has to be
+    before it is worth anything.
+
+    ``p1 != p0``: with equal base rates the true value sits exactly at the kink
+    of ``abs``, where ``|estimate|`` is biased upward and the bound clears the
+    truth however narrow it is. Away from the kink the estimator is roughly
+    unbiased and width starts to matter.
+
+    Rates near 1/2: Hoeffding pays the a-priori range whatever the data does,
+    so it is only near-tight when the observed variance approaches its worst
+    case. Pushed to the boundary the bound would be so slack that any error
+    would hide. As set up here, halving the half-width drops Hoeffding to 0.90
+    and the t-test to 0.80; empirical Bernstein needs roughly a third.
+    """
+    p1, p0, n, delta, trials = 0.6, 0.3, 120, 0.05, 400
+    truth = abs(p1 - p0) - 0.2 * p1
+    root = construct_expr_tree_base(PAPER_CONSTRAINT)
+    T = pd.Series(np.array(["1"] * n + ["0"] * n))
+
+    rng = np.random.default_rng(20)
+    hits = 0
+    for _ in range(trials):
+        y = np.concatenate([rng.binomial(1, p1, n), rng.binomial(1, p0, n)])
+        # pred == Y makes TP(g) exactly the group mean of Y, so the population
+        # value of the constraint is known in closed form rather than estimated.
+        pred = torch.tensor(y.astype(float))
+        bound = affine_upper_bound(
+            root, pd.Series(y), pred, T, delta, inequality=inequality
+        )
+        hits += bound >= truth
+    assert hits / trials >= 1 - delta
+
+
+def test_affine_rejects_constraints_it_cannot_represent() -> None:
+    from fair_seldonian.constraints.affine import NotAffine
+
+    # equal_opportunity divides by a per-group base rate, which is not affine.
+    tree = construct_expr_tree_base("TP(1) TP(1) FN(1) + / 0.1 -")
+    with pytest.raises(NotAffine):
+        compile_bounds(tree)
+
+
+def test_standard_fairness_definitions_are_all_affine_compilable() -> None:
+    """Rate primitives bring equal opportunity and equalized odds into the fragment."""
+    from fair_seldonian.constraints.fairness import (
+        demographic_parity,
+        equal_opportunity,
+        equalized_odds,
+        error_rate_parity,
+    )
+
+    expected = {
+        demographic_parity: 2,
+        equal_opportunity: 2,
+        equalized_odds: 4,
+        error_rate_parity: 2,
+    }
+    for builder, n_forms in expected.items():
+        forms, _ = compile_bounds(construct_expr_tree_base(builder(0.1)))
+        assert len(forms) == n_forms, builder.__name__
+
+
+def test_overlapping_conditioning_sets_are_refused() -> None:
+    """Independence is what licenses the weighted-sum bound, so overlap must raise.
+
+    ``TP(g)`` is a mean over the whole of group ``g`` and ``TPR(g)`` over its
+    ``Y=1`` rows: the sets overlap, the means are dependent, and summing their
+    variances would understate the true one.
+    """
+    from fair_seldonian.constraints.affine import NotAffine, form_upper_bound
+
+    forms, _ = compile_bounds(construct_expr_tree_base("TP(g) TPR(g) - abs 0.1 -"))
+    Y = pd.Series([1, 0, 1, 0])
+    T = pd.Series(["g"] * 4)
+    pred = torch.tensor([0.6, 0.4, 0.7, 0.3], dtype=torch.float64)
+    with pytest.raises(NotAffine, match="overlap"):
+        for form in forms:
+            form_upper_bound(form, Y, pred, T, 0.025)
+
+
+# --------------------------------------------------------------------------
+# Reporting
+# --------------------------------------------------------------------------
+def test_clopper_pearson_does_not_claim_certainty_from_zero_events() -> None:
+    """0/40 violations is not evidence that the rate is below 0.05.
+
+    The normal approximation collapses to a zero-width interval at the boundary,
+    so "violation rate 0.00" from 40 trials reads as though it settled something
+    about a 0.05 threshold. It settles nothing: the true rate could be 0.088.
+
+    The endpoints are pinned to their closed forms rather than to rounded
+    decimals. With no successes the Clopper-Pearson limit solves
+    ``(1 - p)^n = alpha/2``, and a loose tolerance would wave through an
+    off-by-one in the beta shape parameters, which shifts the answer by only
+    about 0.002.
+    """
+    from fair_seldonian.experiments.results import clopper_pearson
+
+    lo, hi = clopper_pearson(0, 40)
+    assert lo == 0.0
+    assert hi > 0.05  # cannot rule out exceeding delta on 40 trials
+    assert hi == pytest.approx(1 - 0.025 ** (1 / 40), abs=1e-12)
+
+    # The mirror case, which is the only thing exercising the other guard.
+    lo_all, hi_all = clopper_pearson(40, 40)
+    assert hi_all == 1.0
+    assert lo_all == pytest.approx(0.025 ** (1 / 40), abs=1e-12)
+
+    # An interior case, where neither guard fires and both endpoints come from
+    # the beta quantiles. At k = n/2 the interval must be symmetric about 1/2.
+    lo_mid, hi_mid = clopper_pearson(20, 40)
+    assert 0.0 < lo_mid < 0.5 < hi_mid < 1.0
+    assert lo_mid == pytest.approx(1 - hi_mid, abs=1e-12)
+
+
+# --------------------------------------------------------------------------
+# Predicted-positive rate primitive
+# --------------------------------------------------------------------------
+def test_pr_primitive_equals_its_cell_expansion() -> None:
+    """``PR(g)`` must denote exactly ``TP(g) + FP(g)``, per sample and in the bound.
+
+    The point of the primitive is fewer leaves, not a different quantity: every
+    leaf spends its own slice of ``delta``, so demographic parity written over
+    ``PR`` costs two intervals where the cell form costs four. If the two forms
+    disagreed numerically the saving would be a silent change of meaning.
+    """
+    from fair_seldonian.constraints.affine import affine_upper_bound
+    from fair_seldonian.constraints.inequalities import contributions
+
+    rng = np.random.default_rng(0)
+    n = 4_000
+    T = pd.Series(np.where(rng.random(n) < 0.5, "A", "B"))
+    Y = pd.Series(rng.binomial(1, np.where(np.asarray(T) == "A", 0.4, 0.6)))
+    pred = torch.tensor(
+        np.clip(0.25 + 0.5 * np.asarray(Y) + rng.normal(0, 0.18, n), 0.01, 0.99)
+    )
+
+    # Per sample.
+    assert torch.allclose(
+        contributions("PR(A)", Y, pred, T),
+        contributions("TP(A)", Y, pred, T) + contributions("FP(A)", Y, pred, T),
+    )
+    assert torch.allclose(
+        contributions("NR(A)", Y, pred, T),
+        contributions("TN(A)", Y, pred, T) + contributions("FN(A)", Y, pred, T),
+    )
+
+    # And through the affine bound, where PR expands back onto the cell basis.
+    pr_form = construct_expr_tree_base("PR(A) PR(B) - abs 0.1 -")
+    cell_form = construct_expr_tree_base("TP(A) FP(A) + TP(B) FP(B) + - abs 0.1 -")
+    for inequality in (
+        Inequality.HOEFFDING_INEQUALITY,
+        Inequality.T_TEST,
+        Inequality.EMPIRICAL_BERNSTEIN,
+    ):
+        a = float(affine_upper_bound(pr_form, Y, pred, T, 0.05, inequality=inequality))
+        b = float(
+            affine_upper_bound(cell_form, Y, pred, T, 0.05, inequality=inequality)
+        )
+        assert abs(a - b) < 1e-12, inequality
+
+
+def test_pr_encoding_beats_the_cell_encoding_on_the_tree_path() -> None:
+    """Two leaves instead of four is a tighter bound, not just tidier notation."""
+    from fair_seldonian.constraints.expression_tree import is_func
+
+    def leaves(constraint: str) -> int:
+        total = 0
+        stack = [construct_expr_tree_base(constraint)]
+        while stack:
+            node = stack.pop()
+            if node is None:
+                continue
+            total += is_func(node.value)
+            stack += [node.left, node.right]
+        return total
+
+    assert leaves("PR(1) PR(0) - abs 0.1 -") == 2
+    assert leaves("TP(1) FP(1) + TP(0) FP(0) + - abs 0.1 -") == 4
+
+    config_pr = SeldonianConfig(constraint="PR(1) PR(0) - abs 0.1 -")
+    config_cell = SeldonianConfig(constraint="TP(1) FP(1) + TP(0) FP(0) + - abs 0.1 -")
+    data = get_data(8_000, 5, 0.5, 0.45, 0.55, random_seed=7)
+    X = np.asarray(data.iloc[:, :-2], dtype=float)
+    Y = np.asarray(data.iloc[:, -2])
+    T = np.asarray(data.iloc[:, -1])
+    theta = torch.tensor(np.array([0.8, 0.1, -0.1, 0.05, 0.3]))
+    theta1 = torch.tensor(np.array([-0.4]))
+
+    pr_bound = float(eval_ghat(theta, theta1, X, Y, T, "base", config_pr))
+    cell_bound = float(eval_ghat(theta, theta1, X, Y, T, "base", config_cell))
+    assert pr_bound < cell_bound

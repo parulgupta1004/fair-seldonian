@@ -47,7 +47,7 @@ postfix string, so you can write your own over the same `TP/FP/FN/TN` primitives
 For example, demographic parity by hand is:
 
 ```python
-SeldonianConfig(constraint="TP(1) FP(1) + TP(0) FP(0) + - abs 0.1 -")
+SeldonianConfig(constraint="PR(1) PR(0) - abs 0.1 -")
 ```
 
 `SeldonianConfig` validates the string on construction (via

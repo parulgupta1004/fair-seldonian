@@ -1,0 +1,1 @@
+Added `Inequality.EMPIRICAL_BERNSTEIN` (Maurer–Pontil) and `Inequality.BETTING` (Waudby-Smith and Ramdas). Both adapt to the observed variance instead of assuming the worst case of 1/4, so they are markedly tighter for base variables far from 1/2 — the common case for a minority group. Betting is the tightest of the four and the slowest. by @parulgupta1004

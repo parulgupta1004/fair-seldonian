@@ -2,238 +2,181 @@ from __future__ import annotations
 
 import logging
 import os
-import sys
-import time
-import timeit
-from typing import TYPE_CHECKING
+from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass, field
 
 import numpy as np
+import torch
 
 from ..algorithms.qsa import QSA
 from ..config import DEFAULT_CONFIG, SeldonianConfig
-from ..data.synthetic import data_split, get_data
-from ..models.logistic_regression import eval_ghat, f_hat, simple_logistic
-
-if TYPE_CHECKING:
-    import torch
+from ..constraints.expression_tree import construct_expr_tree_base, eval_expr_tree_base
+from ..data.synthetic import get_data
+from ..models.logistic_regression import f_hat, predict, simple_logistic
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_OUTPUT_DIR = "exp/exp_{}/bin/"
 
+#: Failure-mode codes stored alongside each trial.
+FOUND = 0
+CANDIDATE_INFEASIBLE = 1
+SAFETY_REJECTED = 2
+_MODE_CODES = {
+    "solution_found": FOUND,
+    "candidate_infeasible": CANDIDATE_INFEASIBLE,
+    "safety_test_rejected": SAFETY_REJECTED,
+}
 
-def store_result(
+
+@dataclass(frozen=True)
+class StudySpec:
+    """One learning-curve experiment.
+
+    :param seldonian_type: bound-propagation variant (``base``, ``mod``, ``bound``,
+        ``const``, ``opt``).
+    :param ms: dataset sizes to sweep.
+    :param num_trials: independent repetitions at each size. Each repetition draws a
+        **fresh** dataset. Generating one dataset and having every "trial"
+        subsample it is cheaper but measures subsampling noise rather than sampling
+        noise, and at the largest size every trial would see identical data.
+    :param force_start: warm-start candidate selection from the previous size's
+        solution. This is sound only because each run has its own independent data.
+        Under a shared-dataset design the warm start would have been fitted on data
+        overlapping the next run's *safety* set, breaking the independence the
+        safety test relies on.
+    :param eval_size: size of the held-out set used to measure the true constraint
+        value and log loss.
+    """
+
+    seldonian_type: str = "base"
+    ms: tuple[int, ...] = (2_000, 5_000, 10_000, 20_000, 40_000, 80_000, 160_000)
+    num_trials: int = 40
+    force_start: bool = False
+    eval_size: int = 200_000
+    config: SeldonianConfig = field(default=DEFAULT_CONFIG)
+    t_ratio: float = 0.5
+    tp0_ratio: float = 0.4
+    tp1_ratio: float = 0.6
+    features: int = 5
+    seed: int = 0
+
+
+def true_g(
     theta: torch.Tensor,
     theta1: torch.Tensor,
-    test_x: np.ndarray,
-    test_y: np.ndarray,
-    test_t: np.ndarray,
-    passed_safety_test: bool,
-    worker_id: int,
-    n_workers: int,
-    m: float,
-    trial: int,
-    num_trials: int,
-    seldonian_type: str,
-    is_baseline: bool,
-    config: SeldonianConfig = DEFAULT_CONFIG,
-) -> tuple[int, int, float, float | None]:
+    X: np.ndarray,
+    Y: np.ndarray,
+    T: np.ndarray,
+    config: SeldonianConfig,
+) -> float:
+    """Plug-in value of the constraint on a held-out set - no confidence interval.
+
+    The Seldonian guarantee is a statement about ``g(theta) <= 0``, so testing it
+    means evaluating ``g`` itself. Reaching instead for ``eval_ghat`` - the
+    *high-confidence upper bound* - and recording ``1 if eval_ghat(...) > 0`` tests
+    a strictly more conservative event, which understates the violation rate and
+    leaves the safety claim untested. It also makes the metric saturate: it reads
+    zero for every roughly-correct variant and so distinguishes none of them.
     """
-    Print and store the resultant information in a file.
+    pred = predict(theta, theta1, X)
+    tree = construct_expr_tree_base(config.constraint)
+    value = eval_expr_tree_base(tree, Y, pred, T)
+    return float("nan") if value is None else float(value)
 
-    :param theta: The parameters of the model
-    :param theta1: The additional parameter of the model, often the last parameter
-    :param test_x: The features of the test dataset
-    :param test_y: The labels of the test dataset
-    :param test_t: The sensitive attribute column of the test dataset
-    :param passed_safety_test: Whether the safety test was passed
-    :param worker_id: Id of the worker thread
-    :param n_workers: Total number of worker threads
-    :param trial: Trial number of the experiment on the worker thread
-    :param num_trials: Total number of trials
-    :param seldonian_type: Mode used in the experiment
-    :param is_baseline: Whether this is the unconstrained logistic-regression baseline
-    :return: (solution_found, failure_g, upper_bound, fhat) tuple values
-    """
-    worker = f"(worker {worker_id}/{n_workers})"
-    trial_label = f"trial {trial + 1}/{num_trials}"
 
-    if not is_baseline and not passed_safety_test:
-        logger.info(f"[{worker} SBase {trial_label}, m {m}] No solution found")
-        return 0, 0, 0, None
+def _run_one(
+    spec: StudySpec, trial: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """One trial: sweep all dataset sizes, drawing fresh data at each."""
+    n_m = len(spec.ms)
+    solution_found = np.zeros(n_m)
+    log_loss = np.full(n_m, np.nan)
+    g_value = np.full(n_m, np.nan)
+    mode = np.zeros(n_m)
+    ls_log_loss = np.full(n_m, np.nan)
+    ls_g_value = np.full(n_m, np.nan)
 
-    # Only scalars are needed below; detach so float() doesn't warn / retain the graph.
-    theta, theta1 = theta.detach(), theta1.detach()
-    true_log_loss = float(-f_hat(theta, theta1, test_x, test_y))
-    upper_bound = float(
-        eval_ghat(theta, theta1, test_x, test_y, test_t, seldonian_type, config)
+    # A single held-out set per trial, big enough that its Monte-Carlo error is
+    # small next to the effects being measured. Drawn from a disjoint seed range so
+    # it can never overlap the training draws.
+    eval_data = get_data(
+        spec.eval_size,
+        spec.features,
+        spec.t_ratio,
+        spec.tp0_ratio,
+        spec.tp1_ratio,
+        random_seed=(spec.seed * 1_000_003 + trial + 500_000) / 7919.0,
     )
-    failures_g1 = 1 if upper_bound > 0 else 0
+    eval_X = np.asarray(eval_data.iloc[:, :-2], dtype=float)
+    eval_Y = np.asarray(eval_data.iloc[:, -2])
+    eval_T = np.asarray(eval_data.iloc[:, -1])
 
-    if is_baseline:
-        logger.info(
-            f"[{worker} LS {trial_label}, m {m}] "
-            f"f_hat: {true_log_loss:.10f}, upper bound: {upper_bound:.10f}"
-        )
-    else:
-        logger.info(
-            f"[{worker} {seldonian_type} {trial_label}, m {m}] "
-            f"Solution: [{theta}, {theta1}] "
-            f"f_hat: {true_log_loss:.10f}, upper bound: {upper_bound:.10f}"
-        )
-    return 1, failures_g1, upper_bound, -true_log_loss
-
-
-def run_experiments(
-    worker_id: int,
-    n_workers: int,
-    ms: np.ndarray,
-    num_trials: int,
-    m_test: float,
-    N: int,
-    seldonian_type: str,
-    config: SeldonianConfig = DEFAULT_CONFIG,
-    output_dir: str = DEFAULT_OUTPUT_DIR,
-) -> None:
-    """
-    Main function that runs the experiment.
-
-    :param worker_id: Id of the worker thread
-    :param n_workers: Total number of worker threads
-    :param ms: Array containing the fraction values of the amount of data to be used
-    :param num_trials: Total number of trials
-    :param m_test: The fraction of test samples to be used from the complete dataset
-    :param N: Number of data samples of the synthetic dataset
-    :param seldonian_type: Mode used in the experiment
-    :return: None
-    """
-    num_m = len(ms)
-    s_solutions_found = np.zeros((num_trials, num_m))
-    s_failures_g1 = np.zeros((num_trials, num_m))
-    s_upper_bound = np.zeros((num_trials, num_m))
-    s_fs = np.zeros((num_trials, num_m))
-
-    LS_solutions_found = np.zeros((num_trials, num_m))
-    LS_failures_g1 = np.zeros((num_trials, num_m))
-    LS_upper_bound = np.zeros((num_trials, num_m))
-    LS_fs = np.zeros((num_trials, num_m))
-
-    experiment_number = worker_id
-    output_path = output_dir.format(seldonian_type)
-    os.makedirs(output_path, exist_ok=True)
-    output_file = os.path.join(output_path, f"results{experiment_number}.npz")
-    logger.info(f"Writing output to {output_file}")
-
-    base_seed = (experiment_number * 99) + 1
-    all_data = get_data(N, 5, 0.4, 0.4, 0.6, base_seed)
     init_sol: torch.Tensor | None = None
     init_sol1: torch.Tensor | None = None
 
-    for trial in range(num_trials):
-        for m_index, m in enumerate(ms):
-            base_seed = (experiment_number * num_trials) + 1
-            random_state = base_seed + trial
-            test_x, test_y, test_t, train_x, train_y, train_t = data_split(
-                m, all_data, random_state, m_test
+    for i, m in enumerate(spec.ms):
+        data = get_data(
+            int(m),
+            spec.features,
+            spec.t_ratio,
+            spec.tp0_ratio,
+            spec.tp1_ratio,
+            random_seed=(spec.seed * 1_000_003 + trial * 1_009 + i) / 7919.0,
+        )
+        X = np.asarray(data.iloc[:, :-2], dtype=float)
+        Y = np.asarray(data.iloc[:, -2])
+        T = np.asarray(data.iloc[:, -1])
+
+        # Unconstrained baseline, fitted on the same data the QSA sees.
+        ls_theta, ls_theta1 = simple_logistic(X, Y)
+        ls_log_loss[i] = -float(f_hat(ls_theta, ls_theta1, eval_X, eval_Y))
+        ls_g_value[i] = true_g(ls_theta, ls_theta1, eval_X, eval_Y, eval_T, spec.config)
+
+        result = QSA(X, Y, T, spec.seldonian_type, init_sol, init_sol1, spec.config)
+        mode[i] = _MODE_CODES[result.diagnostics.failure_mode]
+        if result.passed_safety:
+            solution_found[i] = 1.0
+            log_loss[i] = -float(f_hat(result.theta, result.theta1, eval_X, eval_Y))
+            g_value[i] = true_g(
+                result.theta, result.theta1, eval_X, eval_Y, eval_T, spec.config
             )
+            if spec.force_start:
+                init_sol, init_sol1 = result.theta, result.theta1
 
-            theta, theta1 = simple_logistic(train_x, train_y)
-            (
-                LS_solutions_found[trial, m_index],
-                LS_failures_g1[trial, m_index],
-                LS_upper_bound[trial, m_index],
-                LS_fs[trial, m_index],
-            ) = store_result(
-                theta,
-                theta1,
-                test_x,
-                test_y,
-                test_t,
-                True,
-                worker_id,
-                n_workers,
-                m,
-                trial,
-                num_trials,
-                seldonian_type,
-                True,
-                config,
+    return solution_found, log_loss, g_value, mode, ls_log_loss, ls_g_value
+
+
+def run_study(
+    spec: StudySpec, output_file: str | None = None, n_jobs: int = 1
+) -> dict[str, np.ndarray]:
+    """Run every trial of ``spec`` and return the raw per-trial records.
+
+    Nothing is averaged here. "No solution found" is recorded as ``NaN`` for loss
+    and constraint value rather than 0, so that it cannot be silently averaged in.
+    Storing 0 instead produces a dip-and-return shape in the constraint panel that
+    reads as though found solutions sit comfortably below the threshold, when it is
+    really an artifact of mixing refusals into the mean.
+    """
+    if n_jobs > 1:
+        with ProcessPoolExecutor(max_workers=n_jobs) as pool:
+            rows = list(
+                pool.map(_run_one, [spec] * spec.num_trials, range(spec.num_trials))
             )
+    else:
+        rows = [_run_one(spec, t) for t in range(spec.num_trials)]
 
-            theta, theta1, passed_safety_test = QSA(
-                train_x, train_y, train_t, seldonian_type, init_sol, init_sol1, config
-            )
-            (
-                s_solutions_found[trial, m_index],
-                s_failures_g1[trial, m_index],
-                s_upper_bound[trial, m_index],
-                s_fs[trial, m_index],
-            ) = store_result(
-                theta,
-                theta1,
-                test_x,
-                test_y,
-                test_t,
-                passed_safety_test,
-                worker_id,
-                n_workers,
-                m,
-                trial,
-                num_trials,
-                seldonian_type,
-                False,
-                config,
-            )
-            if s_solutions_found[trial, m_index] == 1:
-                init_sol, init_sol1 = theta, theta1
-
-    np.savez(
-        output_file,
-        ms=ms,
-        s_solutions_found=s_solutions_found,
-        s_fs=s_fs,
-        s_failures_g1=s_failures_g1,
-        s_upper_bound=s_upper_bound,
-        LS_solutions_found=LS_solutions_found,
-        LS_fs=LS_fs,
-        LS_failures_g1=LS_failures_g1,
-        LS_upper_bound=LS_upper_bound,
-    )
-    logger.info(f"Saved the file {output_file}")
-
-
-if __name__ == "__main__":
-    import logging
-
-    import ray  # pyrefly: ignore
-
-    logging.basicConfig(filename="runner.log", level=logging.INFO)
-    ray.init()
-
-    run_experiments_remote = ray.remote(run_experiments)
-
-    logger.info("Assuming the default: 50")
-    n_workers = 2
-    logger.info(f"Running experiments on {n_workers} threads")
-    N = 10000
-    ms = np.logspace(-2, 0, num=3)
-    logger.info(f"N {N}, frac array: {ms}")
-    logger.info(f"Running for: {sys.argv[1]}")
-    num_trials = 2
-    m_test = 0.2
-    logger.info(f"Number of trials: {num_trials}")
-
-    tic = timeit.default_timer()
-    _ = ray.get(
-        [
-            run_experiments_remote.remote(
-                worker_id, n_workers, ms, num_trials, m_test, N, sys.argv[1]
-            )
-            for worker_id in range(1, n_workers + 1)
-        ]
-    )
-    toc = timeit.default_timer()
-    time_parallel = toc - tic
-    logger.info(f"Time elapsed: {time_parallel}")
-    time.sleep(2)
-    ray.shutdown()
+    out = {
+        "ms": np.asarray(spec.ms, dtype=float),
+        "solution_found": np.vstack([r[0] for r in rows]),
+        "log_loss": np.vstack([r[1] for r in rows]),
+        "g_value": np.vstack([r[2] for r in rows]),
+        "failure_mode": np.vstack([r[3] for r in rows]),
+        "ls_log_loss": np.vstack([r[4] for r in rows]),
+        "ls_g_value": np.vstack([r[5] for r in rows]),
+    }
+    if output_file:
+        os.makedirs(os.path.dirname(output_file) or ".", exist_ok=True)
+        np.savez(output_file, **out)
+        logger.info(f"Saved {output_file}")
+    return out

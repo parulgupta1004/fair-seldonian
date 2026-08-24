@@ -51,7 +51,7 @@ def _evaluate(constraint: str) -> float:
 
 def test_demographic_parity_matches_notebook_string() -> None:
     # The Adult notebook hand-writes exactly this postfix string.
-    assert demographic_parity(0.1) == "TP(1) FP(1) + TP(0) FP(0) + - abs 0.1 -"
+    assert demographic_parity(0.1) == "PR(1) PR(0) - abs 0.1 -"
 
 
 def test_demographic_parity_value() -> None:
@@ -130,7 +130,7 @@ def test_constraints_yield_confidence_bounds(build, inequality) -> None:
 
 def test_custom_group_labels() -> None:
     c = demographic_parity(0.05, groups=("Male", "Female"))
-    assert c == "TP(Male) FP(Male) + TP(Female) FP(Female) + - abs 0.05 -"
+    assert c == "PR(Male) PR(Female) - abs 0.05 -"
 
 
 def test_integer_group_labels_are_stringified() -> None:
