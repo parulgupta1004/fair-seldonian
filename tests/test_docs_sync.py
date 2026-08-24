@@ -13,8 +13,11 @@ disagree with it. These tests close the gap generation leaves open: a member tha
 no page mentions *at all* produces no wrong text, just missing text, and nothing
 would notice.
 
-They deliberately do not run Sphinx. Importing the extension module directly
-keeps them in the fast unit-test job, where they run on every push.
+They deliberately do not run Sphinx: importing the extension module directly is
+far cheaper than a build. The ones that touch it, the theme or KaTeX still need
+the ``docs`` extra, so they skip under a plain ``dev`` install and the docs
+workflow runs this file with ``.[dev,docs]`` to execute them. The rest -- every
+check that only reads the package and the ``.rst`` sources -- run everywhere.
 """
 
 from __future__ import annotations
@@ -42,7 +45,15 @@ SRC = REPO_ROOT / "src"
 
 
 def _load_extension():
-    """Import the Sphinx extension without starting Sphinx."""
+    """Import the Sphinx extension without starting Sphinx.
+
+    It is still a Sphinx extension, so importing it needs docutils, which
+    arrives with the ``docs`` extra rather than ``dev``. Skip instead of erroring
+    when only ``dev`` is installed -- which is what CI's test matrix has, and
+    what a contributor gets by default. The docs workflow installs
+    ``.[dev,docs]`` and runs this file there, so the guards still execute.
+    """
+    pytest.importorskip("docutils", reason="docs extra not installed")
     path = DOCS / "_ext" / "fair_seldonian_docs.py"
     spec = importlib.util.spec_from_file_location("fair_seldonian_docs", path)
     assert spec and spec.loader
