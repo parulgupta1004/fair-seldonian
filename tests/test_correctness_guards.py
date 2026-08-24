@@ -4,9 +4,10 @@ Nearly every test here pins down a choice whose wrong answer produces
 plausible-looking numbers rather than an error: a coverage guarantee that is
 quietly half what it claims, an objective that is not the one on the axis label,
 a benchmark with no accuracy to trade away. Ordinary unit tests do not catch
-those, because nothing raises and nothing looks absurd. The comments record why
-each assertion is what it is, so that none of them is later "fixed" by relaxing
-it.
+those, because nothing raises and nothing looks absurd. The split-alignment test
+is the exception - that mismatch did raise, which is why it was reachable only
+at candidate ratios nobody had tried. The comments record why each assertion is what
+it is, so that none of them is later "fixed" by relaxing it.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ import pytest
 import torch
 from sklearn.metrics import log_loss
 
+from fair_seldonian.algorithms.qsa import cand_obj, split_candidate_safety
 from fair_seldonian.config import SeldonianConfig
 from fair_seldonian.constraints.inequalities import (
     Inequality,
@@ -59,6 +61,7 @@ def _empirical_coverage(
             None,
             False,
             False,
+            two_sided=True,
         )
         hits += lo <= p_true <= hi
     return hits / trials
@@ -97,6 +100,7 @@ def test_interval_width_scales_with_group_size_not_dataset_size() -> None:
             None,
             False,
             False,
+            two_sided=True,
         )
         widths.append(hi - lo)
     assert max(widths) - min(widths) < 1e-12
@@ -163,8 +167,6 @@ def test_candidate_objective_stays_resolvable_against_powell_tolerance() -> None
     prevents it: two points with materially different constraint violations must
     differ by more than Powell's relative threshold.
     """
-    from fair_seldonian.algorithms.qsa import cand_obj
-
     config = SeldonianConfig(candidate_ratio=0.6)
     data = get_data(4_000, 5, 0.5, 0.4, 0.6, random_seed=0.5)
     X = np.asarray(data.iloc[:, :-2], dtype=float)
@@ -186,6 +188,32 @@ def test_candidate_objective_stays_resolvable_against_powell_tolerance() -> None
 def test_penalty_must_be_positive() -> None:
     with pytest.raises(ValueError, match="penalty"):
         SeldonianConfig(penalty=0.0)
+
+
+def test_candidate_safety_split_is_aligned() -> None:
+    """X, Y and T must be split at one shared index.
+
+    ``train_test_split(test_size=1 - r)`` rounds its test size up while
+    ``np.split`` at ``int(r * n)`` rounds down, so the two disagree by a row at
+    some ratios - 0.7 and 0.44 among them - leaving the group column a different
+    length from the features and raising ``IndexError`` downstream.
+    """
+    for n in (99, 100, 101, 1_000):
+        X = np.arange(n * 2, dtype=float).reshape(n, 2)
+        Y = np.arange(n)
+        T = np.arange(n)
+        for ratio in (0.4, 0.44, 0.5, 0.6, 0.7, 0.75):
+            cand_X, safe_X, cand_Y, safe_Y, cand_T, safe_T = split_candidate_safety(
+                X, Y, T, ratio
+            )
+            # Same boundary for all three, and nothing lost or duplicated.
+            assert len(cand_X) == len(cand_Y) == len(cand_T)
+            assert len(safe_X) == len(safe_Y) == len(safe_T)
+            assert len(cand_X) + len(safe_X) == n
+            # Row i of every split still refers to the same original sample.
+            assert np.array_equal(cand_X[:, 0], cand_Y * 2)
+            assert np.array_equal(cand_Y, cand_T)
+            assert np.array_equal(safe_Y, safe_T)
 
 
 # --------------------------------------------------------------------------

@@ -1,17 +1,44 @@
 from __future__ import annotations
 
 import logging
-from typing import cast
 
 import numpy as np
 import torch
 from scipy.optimize import minimize
-from sklearn.model_selection import train_test_split
 
 from ..config import DEFAULT_CONFIG, SeldonianConfig
 from ..models.logistic_regression import eval_ghat, f_hat, ghat, simple_logistic
 
 logger = logging.getLogger(__name__)
+
+
+def split_candidate_safety(
+    X: np.ndarray, Y: np.ndarray, T: np.ndarray, candidate_ratio: float
+) -> tuple[np.ndarray, ...]:
+    """Split into candidate and safety sets at a single, shared index.
+
+    Splitting ``X``/``Y`` and ``T`` through two different code paths - say
+    ``train_test_split(test_size=1 - candidate_ratio)`` for one and ``np.split``
+    at ``int(candidate_ratio * n)`` for the other - relies on two rounding rules
+    agreeing, and they round opposite ways. They disagree by a row at some
+    ratios (0.7 and 0.44 among them, though not the 0.4 default), which leaves
+    ``T`` a different length from the predictions and raises ``IndexError`` from
+    the group mask. Computing the boundary once removes the possibility.
+
+    Rows are *not* shuffled here - callers are responsible for supplying data in
+    exchangeable order. On a dataset with meaningful row order (UCI Adult is not
+    shuffled) an unshuffled split makes the candidate and safety sets
+    non-exchangeable, which breaks the i.i.d. premise the guarantee rests on.
+    """
+    n_candidate = int(round(candidate_ratio * len(X)))
+    return (
+        X[:n_candidate],
+        X[n_candidate:],
+        Y[:n_candidate],
+        Y[n_candidate:],
+        T[:n_candidate],
+        T[n_candidate:],
+    )
 
 
 def QSA(
@@ -37,34 +64,21 @@ def QSA(
     :param config: Algorithm configuration
     :return: (theta, theta1, passed_safety) tuple
     """
-    cand_data_X, safe_data_X, cand_data_Y, safe_data_Y = cast(
-        "tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]",
-        train_test_split(X, Y, test_size=1 - config.candidate_ratio, shuffle=False),
-    )
-    cand_data_T, safe_data_T = np.split(
-        T,
-        [
-            int(config.candidate_ratio * T.size),
-        ],
+    cand_X, safe_X, cand_Y, safe_Y, cand_T, safe_T = split_candidate_safety(
+        X, Y, T, config.candidate_ratio
     )
 
     theta, theta1 = get_cand_solution(
-        cand_data_X,
-        cand_data_Y,
-        cand_data_T,
-        seldonian_type,
-        init_sol,
-        init_sol1,
-        config,
+        cand_X, cand_Y, cand_T, seldonian_type, init_sol, init_sol1, config
     )
 
     if logger.isEnabledFor(logging.DEBUG):
         cand_upper_bound = eval_ghat(
-            theta, theta1, cand_data_X, cand_data_Y, cand_data_T, seldonian_type, config
+            theta, theta1, cand_X, cand_Y, cand_T, seldonian_type, config
         )
         logger.debug(f"Actual cand sol upperbound: {cand_upper_bound}")
     passed_safety = safety_test(
-        theta, theta1, safe_data_X, safe_data_Y, safe_data_T, seldonian_type, config
+        theta, theta1, safe_X, safe_Y, safe_T, seldonian_type, config
     )
     return theta, theta1, passed_safety
 

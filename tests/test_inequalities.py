@@ -142,6 +142,23 @@ def test_func_bound_single_sample_ttest_fails_closed() -> None:
     assert lo == -math.inf and hi == math.inf
 
 
+def test_sample_size_is_group_size_not_global_positive_count() -> None:
+    # A tiny group inside a large dataset: the interval must be built from the 2
+    # group members, not from the 6 positive labels across all groups. Using the
+    # global count made the interval sqrt(3)x too narrow here, and arbitrarily
+    # narrow as the dataset grew around a fixed-size minority group.
+    Y = pd.Series([1] * 6 + [0] * 6)
+    T = pd.Series([1, 1] + [0] * 10)
+    pred = torch.tensor([0.9] * 12, dtype=torch.float64)
+    _, hi = eval_func_bound(
+        "TP(1)", Y, pred, T, 0.05, Inequality.HOEFFDING_INEQUALITY, None, False, False
+    )
+    expected = float(eval_estimate("TP(1)", Y, pred, T)) + math.sqrt(
+        math.log(2 / 0.05) / (2 * 2)
+    )
+    assert abs(hi - expected) < 1e-12
+
+
 def test_group_mask_thread_safe() -> None:
     # The group-mask cache is shared module state. On the free-threaded (PEP 703)
     # build these calls run in true parallel, so concurrent lookups, inserts, and
@@ -167,20 +184,3 @@ def test_group_mask_thread_safe() -> None:
     for thread in threads:
         thread.join()
     assert not errors
-
-
-def test_sample_size_is_group_size_not_global_positive_count() -> None:
-    # A tiny group inside a large dataset: the interval must be built from the 2
-    # group members, not from the 6 positive labels across all groups. Using the
-    # global count made the interval sqrt(3)x too narrow here, and arbitrarily
-    # narrow as the dataset grew around a fixed-size minority group.
-    Y = pd.Series([1] * 6 + [0] * 6)
-    T = pd.Series([1, 1] + [0] * 10)
-    pred = torch.tensor([0.9] * 12, dtype=torch.float64)
-    _, hi = eval_func_bound(
-        "TP(1)", Y, pred, T, 0.05, Inequality.HOEFFDING_INEQUALITY, None, False, False
-    )
-    expected = float(eval_estimate("TP(1)", Y, pred, T)) + math.sqrt(
-        math.log(2 / 0.05) / (2 * 2)
-    )
-    assert abs(hi - expected) < 1e-12
