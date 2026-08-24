@@ -186,10 +186,11 @@ def eval_func_bound(
     :param delta: failure probability budget allocated to this node.
     :param two_sided: whether the caller consumes *both* endpoints. A symmetric
         interval that must cover on both sides needs ``ln(2/delta)``; one that is
-        only ever read from above needs ``ln(1/delta)``. Defaults to ``True``,
-        which is always sound: passing ``False`` when the lower endpoint is in
-        fact used would silently double the true failure probability, so a caller
-        must be able to show structurally that it never reads that endpoint.
+        only ever read from above needs ``ln(1/delta)``. Passing ``False`` when the
+        lower endpoint is in fact used would silently double the true failure
+        probability, so the sidedness is derived structurally from the constraint
+        tree rather than guessed - see
+        :func:`fair_seldonian.constraints.expression_tree.child_sides`.
     """
     x = contributions(element, Y, predicted_Y, T)
     n = int(x.numel())

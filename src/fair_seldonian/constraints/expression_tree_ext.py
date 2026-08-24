@@ -3,13 +3,22 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from .expression_tree import ExprTree as _BaseExprTree
 from .expression_tree import (
+    ROOT_SIDES,
+    Sides,
     _eval_node_bounds,
+    child_sides,
     construct_expr_tree_base,
     eval_expr_tree_base,
+    is_constant,
     is_func,
 )
+
+# Left where it is: isort sorts this aliased import by name, placing it between
+# ROOT_SIDES and Sides, while ruff keeps aliased imports in a separate trailing
+# statement. Both hooks run in pre-commit, so without the skip they rewrite this
+# block back and forth forever and no commit can pass.
+from .expression_tree import ExprTree as _BaseExprTree  # isort: skip
 
 if TYPE_CHECKING:
     import torch
@@ -22,12 +31,13 @@ logger = logging.getLogger(__name__)
 
 class ExprTree(_BaseExprTree):
     """
-    Extended expression tree node with delta tracking
+    Extended expression tree node with delta and sidedness tracking
     """
 
     left: ExprTree | None  # pyrefly: ignore[bad-override-mutable-attribute]
     right: ExprTree | None  # pyrefly: ignore[bad-override-mutable-attribute]
     delta: float
+    sides: Sides = ROOT_SIDES
 
     def add_delta(self, delta: float) -> None:
         self.delta = delta
@@ -47,6 +57,27 @@ def construct_expr_tree(
     return t
 
 
+def annotate_sides(t_node: ExprTree | None, sides: Sides = ROOT_SIDES) -> None:
+    """Record on every node which endpoints of its interval are consumed.
+
+    Sidedness is purely structural, so it is resolved once at construction rather
+    than recomputed on every optimizer step. It has to be stored (not derived
+    during evaluation) because :func:`change_deltas` needs to reconcile it across
+    repeated occurrences of the same base variable - see there.
+    """
+    if t_node is None:
+        return
+    t_node.sides = sides
+    left_sides, right_sides = child_sides(
+        t_node.value,
+        sides,
+        t_node.left.value if t_node.left is not None else None,
+        t_node.right.value if t_node.right is not None else None,
+    )
+    annotate_sides(t_node.left, left_sides)
+    annotate_sides(t_node.right, right_sides)
+
+
 def configure_delta(
     t_node: ExprTree | None, delta: float, check_bound: bool, check_constant: bool
 ) -> None:
@@ -54,8 +85,9 @@ def configure_delta(
         add_deltas_constant(t_node, delta)
     else:
         add_deltas(t_node, delta)
+    annotate_sides(t_node)
     if check_bound:
-        hash_map: dict[str, list[float]] = {}
+        hash_map: dict[str, list[tuple[float, Sides]]] = {}
         check_node_dup(t_node, hash_map)
         change_deltas(t_node, hash_map)
 
@@ -98,39 +130,52 @@ def add_deltas(t_node: ExprTree | None, delta: float) -> None:
             add_deltas(t_node.right, child_delta_right)
 
 
-def check_node_dup(t_node: ExprTree | None, hash_map: dict[str, list[float]]) -> None:
+def check_node_dup(
+    t_node: ExprTree | None, hash_map: dict[str, list[tuple[float, Sides]]]
+) -> None:
     if t_node is not None:
         check_node_dup(t_node.left, hash_map)
         if is_func(t_node.value):
-            if t_node.value in hash_map:
-                list_of_delta = hash_map[t_node.value]
-            else:
-                list_of_delta = []
-            list_of_delta.append(t_node.delta)
-            hash_map[t_node.value] = list_of_delta
+            hash_map.setdefault(t_node.value, []).append((t_node.delta, t_node.sides))
         check_node_dup(t_node.right, hash_map)
 
 
-def is_constant(t_node_value: str) -> bool:
-    try:
-        float(t_node_value)
-        return True
-    except Exception:
-        return False
+def change_deltas(
+    t_node: ExprTree | None, hash_map: dict[str, list[tuple[float, Sides]]]
+) -> None:
+    """Collapse repeated occurrences of a base variable onto one shared interval.
+
+    If ``TP(1)`` appears three times with budgets ``d/2``, ``d/4`` and ``d/8``, the
+    naive tree treats them as three independent intervals and pays
+    ``d/2 + d/4 + d/8`` for them. Building a *single* interval at the summed budget
+    ``7d/8`` costs the same failure probability but is narrower than all three, and
+    the constraint then sees one consistent value for the variable.
+
+    The sidedness must be merged too, and this is load-bearing: the argument above
+    only holds if the occurrences really are one interval. Two occurrences with the
+    same delta but different sidedness would produce two *different* widths, hence
+    two failure events, and the total would silently become ``2 * 7d/8``. Taking the
+    union of the endpoint requirements makes every occurrence identical.
+    """
+    for element, occurrences in hash_map.items():
+        if len(occurrences) > 1:
+            merged_delta = sum(delta for delta, _ in occurrences)
+            merged_sides = (
+                any(sides[0] for _, sides in occurrences),
+                any(sides[1] for _, sides in occurrences),
+            )
+            change_delta_value(t_node, element, merged_delta, merged_sides)
 
 
-def change_deltas(t_node: ExprTree | None, hash_map: dict[str, list[float]]) -> None:
-    for k, v in hash_map.items():
-        if len(v) > 1:
-            change_delta_value(t_node, k, sum(v))
-
-
-def change_delta_value(t_node: ExprTree | None, element: str, delta: float) -> None:
+def change_delta_value(
+    t_node: ExprTree | None, element: str, delta: float, sides: Sides
+) -> None:
     if t_node is not None:
-        change_delta_value(t_node.left, element, delta)
+        change_delta_value(t_node.left, element, delta, sides)
         if t_node.value == element:
             t_node.delta = delta
-        change_delta_value(t_node.right, element, delta)
+            t_node.sides = sides
+        change_delta_value(t_node.right, element, delta, sides)
 
 
 #################
@@ -193,6 +238,7 @@ def eval_expr_tree_conf_interval(
             candidate_safety_ratio,
             predict_bound,
             modified_h,
+            t_node.sides,
         )
     return None, None
 

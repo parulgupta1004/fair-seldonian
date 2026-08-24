@@ -47,9 +47,78 @@ def is_func(element: str) -> bool:
     return bool(sep) and head in BASE_MEASURES
 
 
-# A well-formed base-variable token: a cell or rate measure followed by a
-# parenthesised group label containing no spaces or nested parentheses, e.g.
-# ``TP(1)``, ``FP(Male)`` or ``TPR(0)``.
+def is_constant(t_node_value: str) -> bool:
+    """Whether a token is a literal number rather than a base variable."""
+    try:
+        float(t_node_value)
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+# Which endpoints of a node's interval are actually consumed by its parent.
+Sides = tuple[bool, bool]  # (needs_lower, needs_upper)
+BOTH: Sides = (True, True)
+NEITHER: Sides = (False, False)
+ROOT_SIDES: Sides = (False, True)  # the safety test only ever reads U(g) vs 0
+
+
+def child_sides(
+    node_value: str,
+    sides: Sides,
+    left_value: str | None,
+    right_value: str | None,
+) -> tuple[Sides, Sides]:
+    """Propagate "which endpoints do I need" from a node down to its children.
+
+    A leaf only has to pay for the endpoints that are actually read. The safety
+    test reads a single number - the upper bound on ``g`` - so the root needs only
+    its upper endpoint, and for constraints built from ``+``, ``-`` and scaling by
+    a non-negative constant that one-sidedness reaches all the way down to the
+    leaves. Those leaves can then use ``ln(1/delta)`` instead of ``ln(2/delta)``.
+    The half-width scales as the square root of that term, so at ``delta = 0.05``
+    the interval narrows by ``1 - sqrt(ln(20)/ln(40))``, just under 10%.
+
+    ``abs`` breaks it: ``U(|x|) = max(-L(x), U(x))`` reads both endpoints of its
+    operand, so everything under an ``abs`` is two-sided. Products and quotients of
+    two *variables* are treated as two-sided too, because
+    :func:`~fair_seldonian.constraints.bounds.eval_multiply_bound` and
+    :func:`~fair_seldonian.constraints.bounds.eval_div_bound` branch on the signs of
+    both endpoints - an unguaranteed endpoint could select the wrong branch and so
+    corrupt the endpoint that *is* guaranteed.
+
+    Scaling by a constant is safe to pass through: for a fixed ``c`` every branch of
+    the multiply rule collapses to ``(l*c, u*c)`` for ``c >= 0`` and ``(u*c, l*c)``
+    for ``c < 0``, so only the corresponding endpoint of the variable child is read.
+
+    :param node_value: this node's token.
+    :param sides: the endpoints of *this* node that its parent needs.
+    :param left_value: the left child's token, or ``None``.
+    :param right_value: the right child's token, or ``None``.
+    :return: ``(left_sides, right_sides)``.
+    """
+    need_lower, need_upper = sides
+    flipped: Sides = (need_upper, need_lower)
+
+    if is_mod(node_value):
+        # abs reads both endpoints of its operand, which sits on `.left`.
+        return BOTH, NEITHER
+    if node_value == "+":
+        return sides, sides
+    if node_value == "-":
+        return sides, flipped
+    if node_value == "*":
+        if right_value is not None and is_constant(right_value):
+            return (sides if float(right_value) >= 0 else flipped), NEITHER
+        if left_value is not None and is_constant(left_value):
+            return NEITHER, (sides if float(left_value) >= 0 else flipped)
+        return BOTH, BOTH
+    # "/", "^", and anything else: be conservative.
+    return BOTH, BOTH
+
+
+# A well-formed group-rate token: TP/FP/TN/FN followed by a parenthesised group
+# label containing no spaces or nested parentheses, e.g. ``TP(1)`` or ``FP(Male)``.
 _FUNC_TOKEN_RE = re.compile(r"^(?:TPR|FPR|TNR|FNR|TP|FP|TN|FN)\([^()\s]+\)$")
 
 
@@ -218,20 +287,25 @@ def _eval_node_bounds(
     candidate_safety_ratio: float | None,
     predict_bound: bool,
     modified_h: bool,
+    sides: Sides = BOTH,
 ) -> tuple[Bound | None, Bound | None]:
+    def leaf() -> tuple[Bound, Bound]:
+        return eval_func_bound(
+            t_node.value,
+            Y,
+            predicted_Y,
+            T,
+            delta,
+            inequality,
+            candidate_safety_ratio,
+            predict_bound,
+            modified_h,
+            two_sided=sides[0] and sides[1],
+        )
+
     if l_x is None and u_x is None:
         if is_func(t_node.value):
-            return eval_func_bound(
-                t_node.value,
-                Y,
-                predicted_Y,
-                T,
-                delta,
-                inequality,
-                candidate_safety_ratio,
-                predict_bound,
-                modified_h,
-            )
+            return leaf()
         return float(t_node.value), float(t_node.value)
     elif l_y is None and u_y is None:
         if is_mod(t_node.value):
@@ -241,17 +315,7 @@ def _eval_node_bounds(
         if is_operator(t_node.value):
             return eval_math_bound(l_x, u_x, l_y, u_y, t_node.value)
         elif is_func(t_node.value):
-            return eval_func_bound(
-                t_node.value,
-                Y,
-                predicted_Y,
-                T,
-                delta,
-                inequality,
-                candidate_safety_ratio,
-                predict_bound,
-                modified_h,
-            )
+            return leaf()
         elif is_mod(t_node.value):
             return eval_math_bound(l_x, u_x, l_y, u_y, "abs")
         return None, None
@@ -267,6 +331,7 @@ def eval_expr_tree_conf_interval_base(
     candidate_safety_ratio: float | None,
     predict_bound: bool,
     modified_h: bool,
+    sides: Sides = ROOT_SIDES,
 ) -> tuple[Bound | None, Bound | None]:
     """
     To evaluate confidence interval of the expression tree
@@ -281,6 +346,8 @@ def eval_expr_tree_conf_interval_base(
     :param predict_bound: Whether we are finding bound for candidate
         or safety data
     :param modified_h: Whether modified confidence bound is used
+    :param sides: which endpoints of this node's interval the caller consumes.
+        Defaults to the root's requirement (upper only); see :func:`child_sides`.
     :return: upper and lower bound of the estimate of the constraint
     """
     if t_node is not None:
@@ -288,6 +355,12 @@ def eval_expr_tree_conf_interval_base(
             child_delta = delta / 2
         else:
             child_delta = delta
+        left_sides, right_sides = child_sides(
+            t_node.value,
+            sides,
+            t_node.left.value if t_node.left is not None else None,
+            t_node.right.value if t_node.right is not None else None,
+        )
         l_x, u_x = eval_expr_tree_conf_interval_base(
             t_node.left,
             Y,
@@ -298,6 +371,7 @@ def eval_expr_tree_conf_interval_base(
             candidate_safety_ratio,
             predict_bound,
             modified_h,
+            left_sides,
         )
         l_y, u_y = eval_expr_tree_conf_interval_base(
             t_node.right,
@@ -309,6 +383,7 @@ def eval_expr_tree_conf_interval_base(
             candidate_safety_ratio,
             predict_bound,
             modified_h,
+            right_sides,
         )
         return _eval_node_bounds(
             t_node,
@@ -324,6 +399,7 @@ def eval_expr_tree_conf_interval_base(
             candidate_safety_ratio,
             predict_bound,
             modified_h,
+            sides,
         )
     return None, None
 

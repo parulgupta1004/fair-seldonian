@@ -22,6 +22,12 @@ from sklearn.metrics import log_loss
 
 from fair_seldonian.algorithms.qsa import cand_obj, split_candidate_safety
 from fair_seldonian.config import SeldonianConfig
+from fair_seldonian.constraints.expression_tree import (
+    ROOT_SIDES,
+    child_sides,
+    construct_expr_tree_base,
+)
+from fair_seldonian.constraints.expression_tree_ext import construct_expr_tree
 from fair_seldonian.constraints.inequalities import (
     Inequality,
     check_constraint_groups,
@@ -29,6 +35,8 @@ from fair_seldonian.constraints.inequalities import (
 )
 from fair_seldonian.data.synthetic import get_data
 from fair_seldonian.models.logistic_regression import f_hat
+
+PAPER_CONSTRAINT = "TP(1) TP(0) - abs 0.2 TP(1) * -"
 
 
 # --------------------------------------------------------------------------
@@ -323,3 +331,62 @@ def test_betting_beats_hoeffding_away_from_one_half() -> None:
     lo, hi = betting_interval(x, 0.05, two_sided=True)
     hoeffding = math.sqrt(math.log(2 / 0.05) / (2 * 2_000))
     assert (hi - lo) / 2 < 0.6 * hoeffding
+
+
+# --------------------------------------------------------------------------
+# Delta accounting
+# --------------------------------------------------------------------------
+def test_root_is_one_sided_and_abs_forces_two_sided() -> None:
+    """Only the endpoints actually read should be paid for - and all of them must be."""
+    tree = construct_expr_tree_base(PAPER_CONSTRAINT)
+    left, right = child_sides(tree.value, ROOT_SIDES, tree.left.value, tree.right.value)
+    assert right == (True, False)  # L(0.2 * TP(1)) is what subtraction reads
+    abs_node = tree.left
+    below_abs, _ = child_sides(abs_node.value, left, abs_node.left.value, None)
+    assert below_abs == (True, True)  # abs reads both endpoints of its operand
+
+
+def test_error_rate_constraint_stays_one_sided_end_to_end() -> None:
+    tree = construct_expr_tree_base("FP(1) FN(1) + 0.1 -")
+    sides = {}
+
+    def walk(node, node_sides):
+        if node is None:
+            return
+        sides[node.value] = node_sides
+        ls, rs = child_sides(
+            node.value,
+            node_sides,
+            node.left.value if node.left else None,
+            node.right.value if node.right else None,
+        )
+        walk(node.left, ls)
+        walk(node.right, rs)
+
+    walk(tree, ROOT_SIDES)
+    assert sides["FP(1)"] == (False, True) and sides["FN(1)"] == (False, True)
+
+
+def test_union_bound_merge_gives_repeated_leaves_one_shared_interval() -> None:
+    """Merged occurrences must agree on delta *and* sidedness.
+
+    The merge is only sound if the repeated occurrences really are a single
+    interval. Two occurrences sharing a delta but differing in sidedness would be
+    two different widths, hence two failure events, doubling the true budget.
+    """
+    tree = construct_expr_tree(
+        PAPER_CONSTRAINT, 0.05, check_bound=True, check_constant=False
+    )
+    seen = []
+
+    def walk(node):
+        if node is None:
+            return
+        if node.value == "TP(1)":
+            seen.append((node.delta, node.sides))
+        walk(node.left)
+        walk(node.right)
+
+    walk(tree)
+    assert len(seen) > 1
+    assert len(set(seen)) == 1
