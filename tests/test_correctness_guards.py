@@ -22,10 +22,12 @@ from sklearn.metrics import log_loss
 
 from fair_seldonian.algorithms.qsa import cand_obj, split_candidate_safety
 from fair_seldonian.config import SeldonianConfig
+from fair_seldonian.constraints.affine import compile_bounds
 from fair_seldonian.constraints.expression_tree import (
     ROOT_SIDES,
     child_sides,
     construct_expr_tree_base,
+    eval_expr_tree_base,
 )
 from fair_seldonian.constraints.expression_tree_ext import construct_expr_tree
 from fair_seldonian.constraints.inequalities import (
@@ -34,7 +36,7 @@ from fair_seldonian.constraints.inequalities import (
     eval_func_bound,
 )
 from fair_seldonian.data.synthetic import get_data
-from fair_seldonian.models.logistic_regression import f_hat
+from fair_seldonian.models.logistic_regression import eval_ghat, f_hat, predict
 
 PAPER_CONSTRAINT = "TP(1) TP(0) - abs 0.2 TP(1) * -"
 
@@ -390,3 +392,87 @@ def test_union_bound_merge_gives_repeated_leaves_one_shared_interval() -> None:
     walk(tree)
     assert len(seen) > 1
     assert len(set(seen)) == 1
+
+
+# --------------------------------------------------------------------------
+# Affine-form bounding
+# --------------------------------------------------------------------------
+def test_affine_compilation_of_the_paper_constraint() -> None:
+    upper, _ = compile_bounds(construct_expr_tree_base(PAPER_CONSTRAINT))
+    got = {tuple(sorted(form.coefficients.items())) for form in upper}
+    assert got == {
+        (("TP(0)", 1.0), ("TP(1)", -1.2)),
+        (("TP(0)", -1.0), ("TP(1)", 0.8)),
+    }
+
+
+def test_affine_bound_is_valid_and_tighter_than_tree_propagation() -> None:
+    """Affine bounding must still be an upper bound, and should be much tighter."""
+    config = SeldonianConfig(constraint=PAPER_CONSTRAINT, candidate_ratio=0.6)
+    data = get_data(40_000, 5, 0.5, 0.4, 0.6, random_seed=0.5)
+    X = np.asarray(data.iloc[:, :-2], dtype=float)
+    Y = np.asarray(data.iloc[:, -2])
+    T = np.asarray(data.iloc[:, -1])
+    theta = torch.tensor(np.array([0.8, 0.1, -0.1, 0.05, 0.3]))
+    theta1 = torch.tensor(np.array([-0.4]))
+
+    truth = float(
+        eval_expr_tree_base(
+            construct_expr_tree_base(PAPER_CONSTRAINT), Y, predict(theta, theta1, X), T
+        )
+    )
+    tree_bound = float(eval_ghat(theta, theta1, X, Y, T, "base", config))
+    affine_bound = float(eval_ghat(theta, theta1, X, Y, T, "affine", config))
+
+    assert affine_bound >= truth  # still an upper bound
+    assert affine_bound < tree_bound
+    # The whole point is that the gain is large, not marginal like the
+    # constant-skip and union-bound tweaks (both under 2% on this constraint).
+    assert (affine_bound - truth) < 0.75 * (tree_bound - truth)
+
+
+def test_affine_rejects_constraints_it_cannot_represent() -> None:
+    from fair_seldonian.constraints.affine import NotAffine
+
+    # equal_opportunity divides by a per-group base rate, which is not affine.
+    tree = construct_expr_tree_base("TP(1) TP(1) FN(1) + / 0.1 -")
+    with pytest.raises(NotAffine):
+        compile_bounds(tree)
+
+
+def test_standard_fairness_definitions_are_all_affine_compilable() -> None:
+    """Rate primitives bring equal opportunity and equalized odds into the fragment."""
+    from fair_seldonian.constraints.fairness import (
+        demographic_parity,
+        equal_opportunity,
+        equalized_odds,
+        error_rate_parity,
+    )
+
+    expected = {
+        demographic_parity: 2,
+        equal_opportunity: 2,
+        equalized_odds: 4,
+        error_rate_parity: 2,
+    }
+    for builder, n_forms in expected.items():
+        forms, _ = compile_bounds(construct_expr_tree_base(builder(0.1)))
+        assert len(forms) == n_forms, builder.__name__
+
+
+def test_overlapping_conditioning_sets_are_refused() -> None:
+    """Independence is what licenses the weighted-sum bound, so overlap must raise.
+
+    ``TP(g)`` is a mean over the whole of group ``g`` and ``TPR(g)`` over its
+    ``Y=1`` rows: the sets overlap, the means are dependent, and summing their
+    variances would understate the true one.
+    """
+    from fair_seldonian.constraints.affine import NotAffine, form_upper_bound
+
+    forms, _ = compile_bounds(construct_expr_tree_base("TP(g) TPR(g) - abs 0.1 -"))
+    Y = pd.Series([1, 0, 1, 0])
+    T = pd.Series(["g"] * 4)
+    pred = torch.tensor([0.6, 0.4, 0.7, 0.3], dtype=torch.float64)
+    with pytest.raises(NotAffine, match="overlap"):
+        for form in forms:
+            form_upper_bound(form, Y, pred, T, 0.025)

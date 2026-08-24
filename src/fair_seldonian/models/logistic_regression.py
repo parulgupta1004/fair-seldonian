@@ -8,6 +8,7 @@ import torch
 from sklearn.linear_model import LogisticRegression
 
 from ..config import DEFAULT_CONFIG, SeldonianConfig
+from ..constraints.affine import affine_upper_bound
 from ..constraints.expression_tree import (
     construct_expr_tree_base,
     eval_expr_tree_conf_interval_base,
@@ -117,6 +118,8 @@ def eval_ghat(
         return eval_ghat_extend(theta, theta1, X, Y, T, False, True, False, config)
     elif seldonian_type == "opt":
         return eval_ghat_extend(theta, theta1, X, Y, T, True, True, True, config)
+    elif seldonian_type == "affine":
+        return ghat_affine(theta, theta1, X, Y, T, None, config)
     else:
         raise ValueError(f"Unknown seldonian_type: {seldonian_type}")
 
@@ -147,6 +150,8 @@ def ghat(
         return ghat_extend(
             theta, theta1, X, Y, T, True, candidate_ratio, True, True, True, config
         )
+    elif seldonian_type == "affine":
+        return ghat_affine(theta, theta1, X, Y, T, candidate_ratio, config)
     else:
         raise ValueError(f"Unknown seldonian_type: {seldonian_type}")
 
@@ -260,4 +265,31 @@ def eval_ghat_extend(
         check_const,
         modified_h,
         config,
+    )
+
+
+def ghat_affine(
+    theta: torch.Tensor,
+    theta1: torch.Tensor,
+    X: np.ndarray,
+    Y: Array,
+    T: Array,
+    candidate_ratio: float | None,
+    config: SeldonianConfig = DEFAULT_CONFIG,
+) -> Bound:
+    """Upper bound via the max-of-affine-forms compilation.
+
+    See :mod:`fair_seldonian.constraints.affine`. When ``candidate_ratio`` is given
+    this is the candidate-selection prediction of the safety bound rather than the
+    bound itself.
+    """
+    pred = predict(theta, theta1, X)
+    root = construct_expr_tree_base(config.constraint)
+    if candidate_ratio:
+        sample_scale = (1 - candidate_ratio) / candidate_ratio
+        inflate = 2.0
+    else:
+        sample_scale, inflate = 1.0, 1.0
+    return affine_upper_bound(
+        root, Y, pred, T, config.delta, sample_scale, inflate, config.inequality
     )
