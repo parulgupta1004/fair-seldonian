@@ -12,6 +12,8 @@ it is, so that none of them is later "fixed" by relaxing it.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -67,8 +69,11 @@ def _empirical_coverage(
     return hits / trials
 
 
-def test_interval_covers_on_a_small_minority_group() -> None:
-    """The distribution-free interval must cover a minority group's value.
+@pytest.mark.parametrize(
+    "inequality", [Inequality.HOEFFDING_INEQUALITY, Inequality.EMPIRICAL_BERNSTEIN]
+)
+def test_interval_covers_on_a_small_minority_group(inequality: Inequality) -> None:
+    """The distribution-free intervals must cover a minority group's value.
 
     This is the assertion the whole guarantee rests on. Building the interval from
     ``#{Y == 1}`` across *all* groups while the estimate divides by the size of one
@@ -77,9 +82,7 @@ def test_interval_covers_on_a_small_minority_group() -> None:
     balanced benchmark cannot detect it, because there the two counts coincide
     numerically.
     """
-    assert (
-        _empirical_coverage(20_000, 500, 0.3, Inequality.HOEFFDING_INEQUALITY) >= 0.95
-    )
+    assert _empirical_coverage(20_000, 500, 0.3, inequality) >= 0.95
 
 
 def test_interval_width_scales_with_group_size_not_dataset_size() -> None:
@@ -287,3 +290,36 @@ def test_rate_primitive_uses_its_own_conditioning_set() -> None:
     assert int(contributions("TPR(g)", Y, pred, T).numel()) == 2  # the Y=1 rows
     assert int(contributions("TP(g)", Y, pred, T).numel()) == 5  # the whole group
     assert abs(float(contributions("TPR(g)", Y, pred, T).mean()) - 0.8) < 1e-12
+
+
+# --------------------------------------------------------------------------
+# Betting interval
+# --------------------------------------------------------------------------
+@pytest.mark.parametrize("p_true", [0.5, 0.12, 0.03])
+def test_betting_interval_covers(p_true: float) -> None:
+    """The betting interval must deliver at least its nominal coverage.
+
+    It is the tightest bound we ship, so it is also the one where an error would
+    be least likely to show up as anything other than an over-confident result.
+    """
+    from fair_seldonian.constraints.inequalities import betting_interval
+
+    rng = np.random.default_rng(11)
+    hits = 0
+    trials = 200
+    for _ in range(trials):
+        x = rng.binomial(1, p_true, 400).astype(float)
+        lo, hi = betting_interval(x, 0.05, two_sided=True)
+        hits += lo <= p_true <= hi
+    assert hits / trials >= 0.95
+
+
+def test_betting_beats_hoeffding_away_from_one_half() -> None:
+    """Betting adapts to the observed spread; Hoeffding assumes the worst case."""
+    from fair_seldonian.constraints.inequalities import betting_interval
+
+    rng = np.random.default_rng(5)
+    x = rng.binomial(1, 0.05, 2_000).astype(float)
+    lo, hi = betting_interval(x, 0.05, two_sided=True)
+    hoeffding = math.sqrt(math.log(2 / 0.05) / (2 * 2_000))
+    assert (hi - lo) / 2 < 0.6 * hoeffding

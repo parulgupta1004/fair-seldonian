@@ -122,7 +122,11 @@ def test_func_bound_empty_group_fails_closed() -> None:
     Y = pd.Series([1, 0, 1, 0])
     T = pd.Series([0, 0, 0, 0])
     pred = torch.tensor([0.9, 0.1, 0.8, 0.2], dtype=torch.float64)
-    for inequality in (Inequality.HOEFFDING_INEQUALITY, Inequality.T_TEST):
+    for inequality in (
+        Inequality.HOEFFDING_INEQUALITY,
+        Inequality.T_TEST,
+        Inequality.EMPIRICAL_BERNSTEIN,
+    ):
         lo, hi = eval_func_bound(
             "TP(1)", Y, pred, T, 0.05, inequality, None, False, False
         )
@@ -136,10 +140,11 @@ def test_func_bound_single_sample_ttest_fails_closed() -> None:
     Y = pd.Series([1, 0, 0, 0])
     T = pd.Series([1, 0, 0, 0])
     pred = torch.tensor([0.9, 0.1, 0.2, 0.3], dtype=torch.float64)
-    lo, hi = eval_func_bound(
-        "TP(1)", Y, pred, T, 0.05, Inequality.T_TEST, None, False, False
-    )
-    assert lo == -math.inf and hi == math.inf
+    for inequality in (Inequality.T_TEST, Inequality.EMPIRICAL_BERNSTEIN):
+        lo, hi = eval_func_bound(
+            "TP(1)", Y, pred, T, 0.05, inequality, None, False, False
+        )
+        assert lo == -math.inf and hi == math.inf
 
 
 def test_sample_size_is_group_size_not_global_positive_count() -> None:
