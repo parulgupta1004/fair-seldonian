@@ -146,6 +146,12 @@ def compile_bounds(node: ExprTree | None) -> tuple[list[AffineForm], list[Affine
     raise NotAffine(f"operator {value!r} is not affine")
 
 
+#: ``PR`` and ``NR`` are sums of cells over the same rows, so they are rewritten
+#: onto the cell basis before anything else. Every conditioning set is then
+#: spanned by a genuine partition of the group's unit of mass, which is what
+#: lets the range of ``w_i`` be read off the coefficients.
+_EXPANSIONS = {"PR": ("TP", "FP"), "NR": ("TN", "FN")}
+
 #: Within one conditioning set the basis functions partition each sample's unit
 #: of mass, which is what lets the range of ``w_i`` be read off the coefficients.
 _PARTITIONS = {
@@ -200,7 +206,11 @@ def form_upper_bound(
     groups: dict[tuple[str, int | None], dict[str, float]] = {}
     for token, coefficient in form.coefficients.items():
         measure, _ = parse_base_token(token)
-        groups.setdefault(conditioning_set(token), {})[measure] = coefficient
+        bucket = groups.setdefault(conditioning_set(token), {})
+        # Accumulate rather than assign: after expansion two distinct tokens can
+        # land on the same cell, as PR(g) and TP(g) both do on TP.
+        for cell in _EXPANSIONS.get(measure, (measure,)):
+            bucket[cell] = bucket.get(cell, 0.0) + coefficient
     if _overlapping(list(groups)):
         raise NotAffine(
             "form mixes base variables whose conditioning sets overlap "

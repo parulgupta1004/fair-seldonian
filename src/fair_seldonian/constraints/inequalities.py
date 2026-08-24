@@ -92,9 +92,14 @@ def contributions(
     ``TP(A)``, ``FP(A)``, ``TN(A)``, ``FN(A)`` are *fractions of group* ``A``: the
     four cells sum to 1 within a group. So ``TP(A)`` estimates
     :math:`P(\hat{Y}=1, Y=1 \mid T=A)` - a joint probability, **not** the
-    true-positive rate :math:`P(\hat{Y}=1 \mid Y=1, T=A)`. Conditional rates are
-    built from these cells by division; see
-    :mod:`fair_seldonian.constraints.fairness`.
+    true-positive rate :math:`P(\hat{Y}=1 \mid Y=1, T=A)`.
+
+    ``PR(A)`` and ``NR(A)`` are the predicted-positive and predicted-negative
+    rates, ``TP + FP`` and ``TN + FN``. They ignore the label, so they are means
+    over the whole group too and likewise sum to 1.
+
+    ``TPR``, ``FPR``, ``TNR`` and ``FNR`` are the label-conditioned rates, means
+    over a *subset* of the group; see :func:`conditioning_set`.
 
     Concretely, for ``TP(A)`` this returns the vector
 
@@ -132,6 +137,13 @@ def contributions(
         return (1 - probs) * (labels == 0)
     if measure == "FN":  # predicted 0, actually 1
         return (1 - probs) * (labels == 1)
+    # Predicted-positive and predicted-negative rate. Unlike the cells these
+    # ignore the label entirely: PR(g) is TP(g) + FP(g), so it is still a mean
+    # over the whole of group g and shares the cells' conditioning set.
+    if measure == "PR":  # predicted 1, label irrelevant
+        return probs
+    if measure == "NR":  # predicted 0, label irrelevant
+        return 1 - probs
     # Rates condition on the label, so they are means over a subset of the group
     # and carry their own, smaller sample size.
     if measure == "TPR":

@@ -37,9 +37,20 @@ def is_mod(element: str) -> bool:
     return element == "abs"
 
 
-#: Base-variable prefixes. Rates are listed before cells so that ``TPR`` is not
-#: matched as ``TP`` followed by a stray character.
-BASE_MEASURES = ("TPR", "FPR", "TNR", "FNR", "TP", "FP", "TN", "FN")
+#: Base-variable prefixes: the four confusion-matrix cells, the four
+#: label-conditioned rates, and the predicted-positive/negative rates.
+BASE_MEASURES = (
+    "TPR",
+    "FPR",
+    "TNR",
+    "FNR",
+    "TP",
+    "FP",
+    "TN",
+    "FN",
+    "PR",
+    "NR",
+)
 
 
 def is_func(element: str) -> bool:
@@ -119,7 +130,7 @@ def child_sides(
 
 # A well-formed group-rate token: TP/FP/TN/FN followed by a parenthesised group
 # label containing no spaces or nested parentheses, e.g. ``TP(1)`` or ``FP(Male)``.
-_FUNC_TOKEN_RE = re.compile(r"^(?:TPR|FPR|TNR|FNR|TP|FP|TN|FN)\([^()\s]+\)$")
+_FUNC_TOKEN_RE = re.compile(r"^(?:TPR|FPR|TNR|FNR|TP|FP|TN|FN|PR|NR)\([^()\s]+\)$")
 
 
 def validate_constraint(rev_polish_notation: str) -> None:

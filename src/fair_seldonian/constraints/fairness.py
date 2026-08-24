@@ -81,8 +81,15 @@ def _num(epsilon: float) -> str:
 
 
 def _positive_rate(g: str) -> str:
-    """Predicted-positive rate for group ``g``:  ``TP(g) + FP(g)``."""
-    return f"TP({g}) FP({g}) +"
+    """Predicted-positive rate for group ``g``:  ``PR(g)``.
+
+    Written as a primitive rather than as ``TP(g) + FP(g)``. The two denote the
+    same quantity - the fraction of group ``g`` predicted positive, whatever the
+    label - but ``PR(g)`` is a single base variable, so demographic parity costs
+    two leaves rather than four. Every leaf spends its own slice of ``delta``, so
+    halving their number tightens the bound.
+    """
+    return f"PR({g})"
 
 
 def _true_positive_rate(g: str) -> str:

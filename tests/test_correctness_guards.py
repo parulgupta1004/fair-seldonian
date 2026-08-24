@@ -533,3 +533,82 @@ def test_clopper_pearson_does_not_claim_certainty_from_zero_events() -> None:
     assert lo == 0.0
     assert hi > 0.05  # cannot rule out exceeding delta on 40 trials
     assert math.isclose(hi, 0.0881, abs_tol=5e-3)
+
+
+# --------------------------------------------------------------------------
+# Predicted-positive rate primitive
+# --------------------------------------------------------------------------
+def test_pr_primitive_equals_its_cell_expansion() -> None:
+    """``PR(g)`` must denote exactly ``TP(g) + FP(g)``, per sample and in the bound.
+
+    The point of the primitive is fewer leaves, not a different quantity: every
+    leaf spends its own slice of ``delta``, so demographic parity written over
+    ``PR`` costs two intervals where the cell form costs four. If the two forms
+    disagreed numerically the saving would be a silent change of meaning.
+    """
+    from fair_seldonian.constraints.affine import affine_upper_bound
+    from fair_seldonian.constraints.inequalities import contributions
+
+    rng = np.random.default_rng(0)
+    n = 4_000
+    T = pd.Series(np.where(rng.random(n) < 0.5, "A", "B"))
+    Y = pd.Series(rng.binomial(1, np.where(np.asarray(T) == "A", 0.4, 0.6)))
+    pred = torch.tensor(
+        np.clip(0.25 + 0.5 * np.asarray(Y) + rng.normal(0, 0.18, n), 0.01, 0.99)
+    )
+
+    # Per sample.
+    assert torch.allclose(
+        contributions("PR(A)", Y, pred, T),
+        contributions("TP(A)", Y, pred, T) + contributions("FP(A)", Y, pred, T),
+    )
+    assert torch.allclose(
+        contributions("NR(A)", Y, pred, T),
+        contributions("TN(A)", Y, pred, T) + contributions("FN(A)", Y, pred, T),
+    )
+
+    # And through the affine bound, where PR expands back onto the cell basis.
+    pr_form = construct_expr_tree_base("PR(A) PR(B) - abs 0.1 -")
+    cell_form = construct_expr_tree_base("TP(A) FP(A) + TP(B) FP(B) + - abs 0.1 -")
+    for inequality in (
+        Inequality.HOEFFDING_INEQUALITY,
+        Inequality.T_TEST,
+        Inequality.EMPIRICAL_BERNSTEIN,
+    ):
+        a = float(affine_upper_bound(pr_form, Y, pred, T, 0.05, inequality=inequality))
+        b = float(
+            affine_upper_bound(cell_form, Y, pred, T, 0.05, inequality=inequality)
+        )
+        assert abs(a - b) < 1e-12, inequality
+
+
+def test_pr_encoding_beats_the_cell_encoding_on_the_tree_path() -> None:
+    """Two leaves instead of four is a tighter bound, not just tidier notation."""
+    from fair_seldonian.constraints.expression_tree import is_func
+
+    def leaves(constraint: str) -> int:
+        total = 0
+        stack = [construct_expr_tree_base(constraint)]
+        while stack:
+            node = stack.pop()
+            if node is None:
+                continue
+            total += is_func(node.value)
+            stack += [node.left, node.right]
+        return total
+
+    assert leaves("PR(1) PR(0) - abs 0.1 -") == 2
+    assert leaves("TP(1) FP(1) + TP(0) FP(0) + - abs 0.1 -") == 4
+
+    config_pr = SeldonianConfig(constraint="PR(1) PR(0) - abs 0.1 -")
+    config_cell = SeldonianConfig(constraint="TP(1) FP(1) + TP(0) FP(0) + - abs 0.1 -")
+    data = get_data(8_000, 5, 0.5, 0.45, 0.55, random_seed=7)
+    X = np.asarray(data.iloc[:, :-2], dtype=float)
+    Y = np.asarray(data.iloc[:, -2])
+    T = np.asarray(data.iloc[:, -1])
+    theta = torch.tensor(np.array([0.8, 0.1, -0.1, 0.05, 0.3]))
+    theta1 = torch.tensor(np.array([-0.4]))
+
+    pr_bound = float(eval_ghat(theta, theta1, X, Y, T, "base", config_pr))
+    cell_bound = float(eval_ghat(theta, theta1, X, Y, T, "base", config_cell))
+    assert pr_bound < cell_bound

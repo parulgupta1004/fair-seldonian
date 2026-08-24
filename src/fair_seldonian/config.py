@@ -29,7 +29,7 @@ class SeldonianConfig:
         from fair_seldonian import SeldonianConfig, demographic_parity
 
         SeldonianConfig(constraint=demographic_parity(epsilon=0.1))
-        SeldonianConfig(constraint="TP(1) FP(1) + TP(0) FP(0) + - abs 0.1 -")
+        SeldonianConfig(constraint="PR(1) PR(0) - abs 0.1 -")
 
     The constraint is validated on construction (via
     :func:`~fair_seldonian.constraints.expression_tree.validate_constraint`), so a

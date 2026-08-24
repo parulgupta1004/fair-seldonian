@@ -47,9 +47,7 @@ def main() -> None:
     print("-" * 78)
 
     for epsilon in (0.0, 0.01, 0.02, 0.05, 0.10, 0.20):
-        config = SeldonianConfig(
-            constraint=f"TP(1) FP(1) + TP(0) FP(0) + - abs {epsilon} -"
-        )
+        config = SeldonianConfig(constraint=f"PR(1) PR(0) - abs {epsilon} -")
         result = QSA(X_tr, Y_tr, T_tr, "opt", None, None, config)
         mode = result.diagnostics.failure_mode
         print(
@@ -66,7 +64,7 @@ def main() -> None:
 
     # The diagnostics also carry the optimizer's own verdict, which separates
     # "converged, but to an infeasible point" from "ran out of iterations".
-    tight = SeldonianConfig(constraint="TP(1) FP(1) + TP(0) FP(0) + - abs 0.0 -")
+    tight = SeldonianConfig(constraint="PR(1) PR(0) - abs 0.0 -")
     diagnostics = QSA(X_tr, Y_tr, T_tr, "opt", None, None, tight).diagnostics
     print(
         f"\nAt epsilon = 0.00 the optimizer reports {diagnostics.optimizer_message!r}"
@@ -98,7 +96,7 @@ def main() -> None:
         "opt",
         None,
         None,
-        SeldonianConfig(constraint="TP(1) FP(1) + TP(0) FP(0) + - abs 0.2 -"),
+        SeldonianConfig(constraint="PR(1) PR(0) - abs 0.2 -"),
     ).diagnostics
     print(f"  failure_mode          : {rejected.failure_mode}")
     print(f"  candidate upper bound : {rejected.candidate_upper_bound:+.4f}  (<= 0)")
