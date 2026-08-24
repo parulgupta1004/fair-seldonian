@@ -22,6 +22,7 @@ from __future__ import annotations
 import importlib.util
 import re
 import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -197,6 +198,49 @@ def test_vendored_layout_still_matches_the_theme() -> None:
         f"  ours:  {sorted(ours)}\n"
         "Re-sync docs/_templates/layout.html with the theme, keeping `defer`."
     )
+
+
+#: ``:math:`...``` and ``.. math::`` blocks, which KaTeX must be able to render.
+_INLINE_MATH = re.compile(r":math:`([^`]+)`")
+_BLOCK_MATH = re.compile(r"^\.\. math::\s*\n((?:\s*\n|[ \t]+.*\n)+)", re.M)
+
+
+def _all_math() -> list[tuple[str, str, bool]]:
+    """``(page, latex, is_display)`` for every equation in the prose docs."""
+    out = []
+    for p in sorted(DOCS.glob("*.rst")):
+        text = p.read_text()
+        out += [(p.name, m, False) for m in _INLINE_MATH.findall(text)]
+        out += [
+            (p.name, textwrap.dedent(m).strip(), True)
+            for m in _BLOCK_MATH.findall(text)
+        ]
+    return out
+
+
+def test_every_equation_renders_under_katex() -> None:
+    """Math is pre-rendered by KaTeX at build time, and KaTeX is not MathJax.
+
+    It covers a narrower slice of LaTeX, and ``sphinxcontrib-katex`` prerenders
+    with ``throwOnError`` off -- so an expression it cannot parse is baked into
+    the page as red error text and the build still succeeds. Render each one
+    here with errors on, which is the only thing that actually fails.
+    """
+    katex = pytest.importorskip(
+        "sphinxcontrib.katex", reason="docs extra not installed"
+    )
+    equations = _all_math()
+    assert len(equations) > 100, (
+        f"only found {len(equations)} equations - regex broken?"
+    )
+
+    broken = []
+    for page, tex, display in equations:
+        try:
+            katex.render_latex(tex, {"throwOnError": True, "displayMode": display})
+        except Exception as exc:  # noqa: BLE001 - any failure is a failure
+            broken.append(f"{page}: {tex[:60]!r} -> {str(exc)[:90]}")
+    assert not broken, "KaTeX cannot render:\n  " + "\n  ".join(broken)
 
 
 #: The claim that was wrong in four places, in both wordings it appeared in:

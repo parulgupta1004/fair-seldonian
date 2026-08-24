@@ -77,6 +77,7 @@ docs = [
     "pydata-sphinx-theme>=0.16",
     "sphinx-design>=0.6",
     "sphinx-copybutton>=0.5",
+    "sphinxcontrib-katex>=0.9",
     "myst-nb>=1.1",
     "matplotlib",
 ]

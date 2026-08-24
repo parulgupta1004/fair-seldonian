@@ -39,7 +39,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
-    "sphinx.ext.mathjax",
+    "sphinxcontrib.katex",
     "sphinx.ext.githubpages",
     "myst_nb",
     "sphinx_design",
@@ -67,6 +67,23 @@ autodoc_default_options = {
     "undoc-members": True,
     "show-inheritance": True,
 }
+
+# -- Math rendering ----------------------------------------------------------
+
+# MathJax shipped 974 kB of JavaScript (274 kB gzipped) to every page carrying an
+# equation, and typeset them in the browser -- the single largest asset after the
+# theme's icon bundle, and a visible reflow while it ran. KaTeX renders the same
+# markup here at build time, so a reader downloads only the stylesheet and the
+# fonts it actually uses, and the math is already laid out in the HTML.
+#
+# The trade is that KaTeX covers a narrower slice of LaTeX than MathJax, and
+# sphinxcontrib-katex pre-renders with ``throwOnError`` off -- so an expression
+# it cannot parse is baked into the page as red error text and the build still
+# succeeds. ``test_every_equation_renders_under_katex`` renders them all with
+# errors on, which is what actually catches it.
+#
+# Pre-rendering shells out to node; without one the build fails outright.
+katex_prerender = True
 
 # -- Napoleon configuration -------------------------------------------------
 
