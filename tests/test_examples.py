@@ -95,3 +95,30 @@ def test_notebooks_do_not_unpack_qsa_as_a_three_tuple(notebook: Path) -> None:
                     f"{notebook.name} cell {index} unpacks QSA into three "
                     f"targets: {line.strip()}"
                 )
+
+
+def test_experiments_imports_without_matplotlib() -> None:
+    """The experiments subpackage must import on a base install.
+
+    matplotlib is an optional extra, but ``experiments/__init__`` re-exports
+    ``plot_all``. When that module imported matplotlib at the top level, merely
+    importing ``fair_seldonian.experiments`` -- for ``summarise``,
+    ``run_study`` or ``clopper_pearson``, none of which draw anything -- raised
+    ModuleNotFoundError on a base install and in CI, which installs only the
+    ``dev`` extra.
+    """
+    script = (
+        "import sys, types;"
+        # Make matplotlib unimportable for this interpreter only.
+        "sys.modules['matplotlib'] = None;"
+        "import fair_seldonian.experiments as e;"
+        "assert e.clopper_pearson(0, 40)[1] > 0.05;"
+        "print('ok')"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, text=True, timeout=300
+    )
+    assert completed.returncode == 0, (
+        "fair_seldonian.experiments must import without matplotlib\n"
+        f"--- stderr ---\n{completed.stderr}"
+    )

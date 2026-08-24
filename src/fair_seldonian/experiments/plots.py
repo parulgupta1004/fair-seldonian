@@ -1,11 +1,7 @@
 from __future__ import annotations
 
 import os
-
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402  # pyrefly: ignore
+from typing import Any
 
 #: Panel filenames, kept as-is so existing figure references keep resolving.
 LOSS_PANEL = "tutorial7MSE_py.png"
@@ -14,7 +10,28 @@ CONSTRAINT_PANEL = "tutorial7PrFail2_py.png"
 SOLUTION_PANEL = "tutorial7PrSoln_py.png"
 
 
+def _pyplot() -> Any:
+    """Import pyplot on first use rather than at module import.
+
+    matplotlib is an optional extra (``plots``, ``notebook``), but
+    ``experiments/__init__`` re-exports :func:`plot_all`. Importing it eagerly
+    therefore made the whole subpackage unimportable without matplotlib -
+    including ``summarise``, ``run_study`` and ``clopper_pearson``, none of
+    which draw anything. A base install, or CI installing only the ``dev``
+    extra, hit ``ModuleNotFoundError`` on ``import fair_seldonian.experiments``.
+
+    Agg is selected before pyplot loads so this works with no display attached.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    return plt
+
+
 def _finish(ax, xlabel: str, ylabel: str, out_path: str, legend_loc: str) -> None:
+    plt = _pyplot()
     ax.set_xlabel(xlabel, fontsize=15)
     ax.set_ylabel(ylabel, fontsize=15)
     ax.set_xscale("log")
@@ -28,6 +45,7 @@ def _finish(ax, xlabel: str, ylabel: str, out_path: str, legend_loc: str) -> Non
 
 def plot_all(rows: list[dict[str, float]], out_dir: str) -> None:
     """Write the four result panels for one experiment variant."""
+    plt = _pyplot()
     ms = [r["m"] for r in rows]
 
     # Log loss. Only trials that returned a solution contribute, so points backed by
