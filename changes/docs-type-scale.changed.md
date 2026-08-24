@@ -1,0 +1,1 @@
+Tightened the documentation type scale. The theme's defaults put 42px headings over 16px body text, with API signatures rendered in monospace at the full body size; headings now run 30/22/19px over 15px body, and signatures 13px. by @parulgupta1004

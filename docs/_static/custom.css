@@ -5,6 +5,44 @@
  * one thing dark mode genuinely breaks (saved notebook figures).
  */
 
+/* -- Type scale ------------------------------------------------------------ */
+
+/* The theme's defaults are set for a marketing-sized page: 16px body under a
+ * 42px h1, stepping down only to 24px by h4. On a reference page that is mostly
+ * h2/h3 sections the headings crowd out the prose they label.
+ *
+ * These are the theme's own variables, redefined on the same selector it uses;
+ * custom.css loads after the theme stylesheet, so these win. Note the base size
+ * compounds: html's own font-size is set from --pst-font-size-base, so 1rem
+ * becomes 15px for everything below it and the heading rem values scale with it. */
+html {
+  --pst-font-size-base: 0.9375rem; /* 16px -> 15px body text */
+  --pst-font-size-h1: 2rem; /* 42px -> 30px */
+  --pst-font-size-h2: 1.5rem; /* 34px -> 22px */
+  --pst-font-size-h3: 1.25rem; /* 28px -> 19px */
+  --pst-font-size-h4: 1.1rem; /* 24px -> 17px */
+  /* Only h1-h3 appear in these docs today, but keep the tail of the scale at or
+   * above body size: a heading smaller than the text it introduces reads as a
+   * mistake, and headings are already distinguished by weight. */
+  --pst-font-size-h5: 1.05rem; /* 20px -> 16px */
+  --pst-font-size-h6: 1rem; /* 16px -> 15px */
+}
+
+/* API signatures are monospace at the full body size, which reads a size larger
+ * than the prose around them -- and since long signatures now wrap one parameter
+ * per line, a seven-argument class became a seven-line block. */
+dt.sig,
+dt.sig-object {
+  font-size: 0.875em;
+}
+
+/* The dotted module path prefix on every signature is noise once you know which
+ * page you are on; keep it legible but let the name itself lead. */
+.sig-prename.descclassname {
+  font-size: 0.95em;
+  color: var(--pst-color-text-muted);
+}
+
 /* -- Brand ---------------------------------------------------------------- */
 
 html[data-theme="light"] {
