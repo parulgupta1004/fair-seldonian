@@ -21,5 +21,20 @@ Bibliography
    e calcolo delle probabilità." *Pubblicazioni del R Istituto Superiore di
    Scienze Economiche e Commerciali di Firenze*, 8, 3–62.
 
-.. [Boyd2004] Boyd, S. & Vandenberghe, L. (2004). *Convex Optimization*.
-   Cambridge University Press.
+.. [MaurerPontil2009] Maurer, A. & Pontil, M. (2009). "Empirical Bernstein
+   bounds and sample-variance penalization." *Proceedings of the 22nd Conference
+   on Learning Theory (COLT)*.
+   `arXiv:0907.3740 <https://arxiv.org/abs/0907.3740>`_
+
+.. [WaudbySmith2024] Waudby-Smith, I. & Ramdas, A. (2024). "Estimating means of
+   bounded random variables by betting." *Journal of the Royal Statistical
+   Society Series B*, 86(1), 1–27.
+   `doi:10.1093/jrsssb/qkad009 <https://doi.org/10.1093/jrsssb/qkad009>`_
+
+.. [Ville1939] Ville, J. (1939). *Étude critique de la notion de collectif*.
+   Gauthier-Villars.
+
+.. [ClopperPearson1934] Clopper, C.J. & Pearson, E.S. (1934). "The use of
+   confidence or fiducial limits illustrated in the case of the binomial."
+   *Biometrika*, 26(4), 404–413.
+   `doi:10.1093/biomet/26.4.404 <https://doi.org/10.1093/biomet/26.4.404>`_

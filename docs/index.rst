@@ -53,6 +53,7 @@ never an unsafe model.
 
    theory
    variants
+   inequalities
 
 .. toctree::
    :maxdepth: 3

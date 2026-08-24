@@ -4,6 +4,14 @@ fair\_seldonian.constraints package
 Submodules
 ----------
 
+fair\_seldonian.constraints.affine module
+-----------------------------------------
+
+.. automodule:: fair_seldonian.constraints.affine
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 fair\_seldonian.constraints.bounds module
 -----------------------------------------
 

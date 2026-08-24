@@ -1,5 +1,11 @@
+from .affine import AffineForm as AffineForm
+from .affine import NotAffine as NotAffine
+from .affine import affine_upper_bound as affine_upper_bound
+from .affine import compile_bounds as compile_bounds
+from .affine import form_upper_bound as form_upper_bound
 from .bounds import eval_math_bound as eval_math_bound
 from .expression_tree import ExprTree as ExprTree
+from .expression_tree import constraint_groups as constraint_groups
 from .expression_tree import construct_expr_tree_base as construct_expr_tree_base
 from .expression_tree import eval_expr_tree_base as eval_expr_tree_base
 from .expression_tree import (
@@ -23,7 +29,9 @@ from .fairness import equalized_odds as equalized_odds
 from .fairness import error_rate as error_rate
 from .fairness import error_rate_parity as error_rate_parity
 from .inequalities import Inequality as Inequality
+from .inequalities import betting_interval as betting_interval
 from .inequalities import check_constraint_groups as check_constraint_groups
+from .inequalities import conditioning_set as conditioning_set
 from .inequalities import contributions as contributions
 from .inequalities import eval_estimate as eval_estimate
 from .inequalities import eval_func_bound as eval_func_bound

@@ -1,0 +1,1 @@
+`QSA` now calls `check_constraint_groups` before splitting, so a constraint naming a group absent from `T` raises immediately. An upcast `T` (int `1` becoming float `1.0`) empties every group mask and fails the bound closed to `+inf`, which previously surfaced as an ordinary "no solution found" rather than the type error it is. by @parulgupta1004

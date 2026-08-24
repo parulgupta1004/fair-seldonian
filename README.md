@@ -32,7 +32,6 @@ Built on the Seldonian algorithm framework by [Thomas et al. (2019)](https://www
 git clone https://github.com/parulgupta1004/fair-seldonian.git
 cd fair-seldonian
 uv sync                          # core dependencies
-uv sync --extra experiments      # + Ray for parallel experiments
 uv sync --extra plots            # + matplotlib for visualization
 uv sync --extra notebook         # + JupyterLab to run examples/quickstart.ipynb
 ```
@@ -42,15 +41,13 @@ Or with pip:
 ```bash
 pip install fair-seldonian
 pip install "fair-seldonian[notebook]"          # JupyterLab + matplotlib to run the quickstart
-pip install "fair-seldonian[experiments,plots]"
+pip install "fair-seldonian[plots]"                # + matplotlib for the figures
 ```
 
 ## Usage
 
 ```python
-from fair_seldonian.algorithms import QSA
-from fair_seldonian.models import eval_ghat
-from fair_seldonian.data import get_data, data_split
+from fair_seldonian import QSA, data_split, eval_ghat, get_data
 
 data = get_data(N=10000, features=5, t_ratio=0.4,
                 tp0_ratio=0.4, tp1_ratio=0.6, random_seed=42)
@@ -69,10 +66,11 @@ else:
 **Custom configuration:**
 
 ```python
-from fair_seldonian.config import SeldonianConfig
-from fair_seldonian.constraints.inequalities import Inequality
+from fair_seldonian import Inequality, SeldonianConfig
 
-config = SeldonianConfig(delta=0.01, inequality=Inequality.T_TEST, candidate_ratio=0.5)
+config = SeldonianConfig(
+    delta=0.01, inequality=Inequality.EMPIRICAL_BERNSTEIN, candidate_ratio=0.5
+)
 result = QSA(X_tr, Y_tr, T_tr, "opt", None, None, config)
 ```
 
@@ -140,10 +138,18 @@ uv run python examples/quickstart.py
 | `const` | Constant-aware &delta; allocation |
 | `bound` | Union bound optimization for repeated variables |
 | `opt` | All optimizations combined |
+| `affine` | Compiles the constraint to a max of affine forms, one interval per form — roughly halves the slack, but only for constraints built from `+`, `-`, scaling and `abs` |
 
 ```bash
 uv run python scripts/run_paper_experiments.py --out exp/paper --only opt
 ```
+
+Orthogonally, `SeldonianConfig(inequality=...)` selects how each interval is
+built. `HOEFFDING_INEQUALITY` (the default), `EMPIRICAL_BERNSTEIN` and `BETTING`
+are distribution-free and give a genuine guarantee; `T_TEST` assumes approximate
+normality, which is what makes the result *quasi*-Seldonian. See the
+[Concentration inequalities](https://parulgupta1004.github.io/fair-seldonian/inequalities.html)
+docs for how to choose.
 
 ## Citation
 

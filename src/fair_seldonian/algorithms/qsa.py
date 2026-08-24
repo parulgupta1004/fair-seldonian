@@ -8,9 +8,21 @@ import torch
 from scipy.optimize import minimize
 
 from ..config import DEFAULT_CONFIG, SeldonianConfig
+from ..constraints.expression_tree import constraint_groups
+from ..constraints.inequalities import check_constraint_groups
 from ..models.logistic_regression import eval_ghat, f_hat, ghat, simple_logistic
 
 logger = logging.getLogger(__name__)
+
+
+def passes_safety(upper_bound: float) -> bool:
+    """The safety test's decision rule.
+
+    Defined once because three places need it - :func:`QSA`, :func:`safety_test`
+    and :attr:`Diagnostics.failure_mode` - and a criterion that drifts between
+    them would report a model as certified in one and rejected in another.
+    """
+    return bool(upper_bound <= 0.0)
 
 
 class Diagnostics(NamedTuple):
@@ -34,7 +46,7 @@ class Diagnostics(NamedTuple):
 
     @property
     def failure_mode(self) -> str:
-        if self.safety_upper_bound <= 0.0:
+        if passes_safety(self.safety_upper_bound):
             return "solution_found"
         if self.candidate_upper_bound > 0.0:
             return "candidate_infeasible"
@@ -100,6 +112,11 @@ def QSA(
     :param config: Algorithm configuration
     :return: :class:`QSAResult`
     """
+    # Fail loudly on a group the constraint names but T does not contain. Without
+    # this the masks come back empty, the bound fails closed to +inf and the run
+    # reports an ordinary "no solution found" instead of the type error it is.
+    check_constraint_groups(constraint_groups(config.constraint), T)
+
     cand_X, safe_X, cand_Y, safe_Y, cand_T, safe_T = split_candidate_safety(
         X, Y, T, config.candidate_ratio
     )
@@ -131,7 +148,7 @@ def QSA(
         diagnostics.optimizer_iterations,
         diagnostics.optimizer_evaluations,
     )
-    return QSAResult(theta, theta1, safety_upper_bound <= 0.0, diagnostics)
+    return QSAResult(theta, theta1, passes_safety(safety_upper_bound), diagnostics)
 
 
 def safety_test(
@@ -159,7 +176,7 @@ def safety_test(
         theta, theta1, safe_data_X, safe_data_Y, safe_data_T, seldonian_type, config
     )
     logger.debug(f"Safety test upperbound: {upper_bound}")
-    return bool(upper_bound <= 0.0)
+    return passes_safety(float(upper_bound))
 
 
 def get_cand_solution(

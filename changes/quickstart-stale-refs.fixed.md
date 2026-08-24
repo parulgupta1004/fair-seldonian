@@ -1,0 +1,1 @@
+Fixed the quickstart's reference to `fHat`, renamed to `f_hat`, and replaced the claim that constraints are written over "`TP`, `FP`, `TN`, `FN` rates" with the three actual kinds of base variable — cells, label-conditioned rates and predicted rates. by @parulgupta1004
