@@ -26,6 +26,57 @@ The first three are distribution-free: they assume only that each contribution
 lies in :math:`[0, 1]`, which the base variables satisfy by construction. Their
 coverage claim holds at any sample size.
 
+.. figure:: _static/generated/interval-widths.svg
+   :align: center
+   :width: 100%
+   :alt: Interval half-width against sample size, at base rates 0.1 and 0.5,
+         for each of the four inequalities.
+
+   Half-width against sample size, averaged over 15 draws. Produced by
+   ``scripts/make_docs_figures.py`` calling the same implementations the library
+   uses, so it cannot disagree with them.
+
+The two panels are the whole argument for offering a choice. At a base rate of
+0.1 the ordering is betting < empirical Bernstein < Hoeffding, and the gap is
+large: betting is worth roughly a four-fold increase in sample size over
+Hoeffding, since a half-width scales as :math:`1/\sqrt{n}`. At 0.5 empirical
+Bernstein crosses *above* Hoeffding — it has paid the additive
+variance-estimation term for a variance that was already the worst case — while
+betting converges onto Hoeffding.
+
+Which to use
+------------
+
+.. grid:: 1 1 3 3
+   :gutter: 2
+
+   .. grid-item-card:: Start here
+
+      ``HOEFFDING_INEQUALITY``
+
+      Cheap, predictable, and never worse than a constant factor off. Nothing
+      about it depends on the data, so it cannot surprise you.
+
+   .. grid-item-card:: A group's rate is small
+
+      ``EMPIRICAL_BERNSTEIN``
+
+      Any rate far from 1/2 — the usual case for a minority group, or for a
+      constraint on a rare error. Avoid it when the rate really is near 1/2.
+
+   .. grid-item-card:: The bound is what blocks you
+
+      ``BETTING``
+
+      Tightest of the three sound options at every rate. Pay for it in time:
+      each endpoint takes repeated passes over the data.
+
+.. note::
+
+   Because these are orthogonal to :doc:`variants`, changing inequality costs one
+   argument and never changes what is being certified — only how much slack the
+   certificate carries. ``examples/tighter_bounds.py`` prints the full grid.
+
 .. _inequality-hoeffding:
 
 Hoeffding (``HOEFFDING_INEQUALITY``)
