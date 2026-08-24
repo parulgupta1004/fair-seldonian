@@ -41,6 +41,8 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.githubpages",
     "myst_nb",
+    "sphinx_design",
+    "sphinx_copybutton",
 ]
 
 templates_path = ["_templates"]
@@ -85,14 +87,37 @@ intersphinx_mapping = {
 
 # -- HTML output configuration ----------------------------------------------
 
-html_theme = "sphinx_rtd_theme"
+html_theme = "pydata_sphinx_theme"
+_repo = "https://github.com/parulgupta1004/fair-seldonian"
 html_theme_options = {
-    "navigation_depth": 3,
-    "collapse_navigation": False,
-    "sticky_navigation": True,
-    "prev_next_buttons_location": "both",
+    "navbar_start": ["navbar-logo"],
+    "navbar_center": ["navbar-nav"],
+    "navbar_end": ["theme-switcher", "navbar-icon-links"],
+    "navbar_align": "left",
+    "icon_links": [
+        {"name": "GitHub", "url": _repo, "icon": "fa-brands fa-github"},
+        {
+            "name": "PyPI",
+            "url": "https://pypi.org/project/fair-seldonian/",
+            "icon": "fa-brands fa-python",
+        },
+    ],
+    "show_prev_next": True,
+    "show_toc_level": 2,
+    "use_edit_page_button": True,
+    "footer_start": ["copyright"],
+    "footer_end": ["sphinx-version"],
+}
+html_context = {
+    "github_user": "parulgupta1004",
+    "github_repo": "fair-seldonian",
+    "github_version": "master",
+    "doc_path": "docs",
+    # Respect the reader's OS setting rather than forcing one mode.
+    "default_mode": "auto",
 }
 html_static_path = ["_static"]
+html_css_files = ["custom.css"]
 html_show_sourcelink = True
 html_show_copyright = True
 

@@ -1,0 +1,84 @@
+/* Fair-Seldonian documentation theme overrides.
+ *
+ * Kept deliberately small: the PyData theme is already close to what we want, so
+ * this only sets the brand colours, tightens the generated tables, and fixes the
+ * one thing dark mode genuinely breaks (saved notebook figures).
+ */
+
+/* -- Brand ---------------------------------------------------------------- */
+
+html[data-theme="light"] {
+  --pst-color-primary: #1a5f7a;
+  --pst-color-secondary: #b8621b;
+  --pst-color-accent: #0f8b8d;
+  --pst-color-inline-code: #b8621b;
+}
+
+html[data-theme="dark"] {
+  --pst-color-primary: #6bb8d6;
+  --pst-color-secondary: #e89b5a;
+  --pst-color-accent: #4ecdc4;
+  --pst-color-inline-code: #e89b5a;
+}
+
+/* -- Saved notebook figures ----------------------------------------------- */
+
+/* The example notebooks ship with matplotlib PNGs drawn on a white canvas with
+ * near-black text. On a dark page the text becomes black-on-dark and disappears.
+ * Regenerating a second set of figures per theme is not worth the maintenance,
+ * so give the images their own light backing instead. */
+html[data-theme="dark"] .cell_output img,
+html[data-theme="dark"] figure img[src*="_images"] {
+  background-color: #ffffff;
+  border-radius: 4px;
+  padding: 0.4rem;
+}
+
+/* -- Generated tables ----------------------------------------------------- */
+
+/* The constraint and inequality tables carry postfix strings and formulas that
+ * must not be broken across lines mid-token. */
+table.fs-generated td code,
+table.fs-generated td .docutils.literal {
+  white-space: nowrap;
+}
+
+table.fs-generated {
+  font-size: 0.9em;
+}
+
+table.fs-generated th {
+  background-color: var(--pst-color-surface);
+}
+
+/* Yes/no capability cells in the comparison matrix. */
+.fs-yes {
+  color: var(--pst-color-success);
+  font-weight: 600;
+}
+
+.fs-no {
+  color: var(--pst-color-danger);
+}
+
+.fs-partial {
+  color: var(--pst-color-warning);
+}
+
+/* -- Landing page --------------------------------------------------------- */
+
+.fs-hero {
+  padding: 1.5rem 0 0.5rem;
+}
+
+.fs-hero .fs-tagline {
+  font-size: 1.25rem;
+  color: var(--pst-color-text-muted);
+  margin-bottom: 1.5rem;
+}
+
+/* Cards on the landing page should feel clickable. */
+.sd-card:hover {
+  border-color: var(--pst-color-primary);
+  transition: border-color 0.15s ease-in-out;
+}
