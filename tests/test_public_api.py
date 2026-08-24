@@ -1,20 +1,28 @@
-"""Guards on what the package exposes at its top level.
+"""Guards on what the package exposes and what the docs claim it exposes.
 
-Nothing else in this repo imports from ``fair_seldonian`` directly -- the tests
-and examples reach into the submodules -- so dropping a name from an
-``__init__`` breaks downstream code without breaking anything here.
+Two failures this suite could not previously see:
+
+* Nothing else in this repo imports from ``fair_seldonian`` directly -- the
+  tests and examples reach into the submodules -- so dropping a name from an
+  ``__init__`` breaks downstream code without breaking anything here.
+* A module can be complete, tested and reachable only by its full dotted path.
+  ``constraints.affine`` shipped that way -- absent from every ``__init__`` and
+  from the Sphinx API reference, so nothing but the source tree revealed it.
 """
 
 from __future__ import annotations
 
 import ast
 import pkgutil
+import re
 from pathlib import Path
 
 import pytest
 
 import fair_seldonian
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DOCS = REPO_ROOT / "docs"
 PACKAGE_DIR = Path(fair_seldonian.__file__).parent
 
 # Names the package promises at its top level. Removing one is a breaking change
@@ -91,6 +99,34 @@ def test_no_undeclared_public_names() -> None:
     unexpected = actual - PUBLIC_API - submodules
     assert not unexpected, (
         f"undeclared names in the root namespace: {sorted(unexpected)}"
+    )
+
+
+def _public_modules() -> list[str]:
+    """Every importable, non-private module in the package."""
+    found = []
+    for mod in pkgutil.walk_packages([str(PACKAGE_DIR)], prefix="fair_seldonian."):
+        if any(part.startswith("_") for part in mod.name.split(".")):
+            continue
+        found.append(mod.name)
+    return sorted(found)
+
+
+def test_every_public_module_is_in_the_api_reference() -> None:
+    """Sphinx renders only what an ``automodule`` directive names.
+
+    ``constraints.affine`` was missing, so the module implementing the tightest
+    bound the library offers did not appear in the published API docs at all.
+    """
+    documented = set()
+    for rst in (DOCS / "api").glob("*.rst"):
+        documented.update(
+            re.findall(r"^\.\.\s+automodule::\s+(\S+)", rst.read_text(), re.M)
+        )
+    missing = [m for m in _public_modules() if m not in documented]
+    assert not missing, (
+        f"public modules absent from docs/api/: {missing}. "
+        "Add an automodule directive so they appear in the API reference."
     )
 
 

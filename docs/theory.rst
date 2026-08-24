@@ -88,7 +88,8 @@ every binary operator:
 
 This is conservative: it does not account for constant nodes or repeated
 variables. The :doc:`variants` section describes three optimizations that
-improve upon this baseline.
+address those, and a fourth, :ref:`variant-affine`, that sidesteps the per-leaf
+split altogether for constraints inside its fragment.
 
 Interval Arithmetic
 -------------------

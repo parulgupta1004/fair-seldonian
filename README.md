@@ -139,6 +139,7 @@ uv run python examples/quickstart.py
 | `const` | Constant-aware &delta; allocation |
 | `bound` | Union bound optimization for repeated variables |
 | `opt` | All optimizations combined |
+| `affine` | Compiles the constraint to a max of affine forms, one interval per form — roughly halves the slack, but only for constraints built from `+`, `-`, scaling and `abs` |
 
 ```bash
 uv run python scripts/run_paper_experiments.py --out exp/paper --only opt

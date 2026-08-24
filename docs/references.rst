@@ -20,6 +20,3 @@ Bibliography
 .. [Bonferroni1936] Bonferroni, C.E. (1936). "Teoria statistica delle classi
    e calcolo delle probabilità." *Pubblicazioni del R Istituto Superiore di
    Scienze Economiche e Commerciali di Firenze*, 8, 3–62.
-
-.. [Boyd2004] Boyd, S. & Vandenberghe, L. (2004). *Convex Optimization*.
-   Cambridge University Press.

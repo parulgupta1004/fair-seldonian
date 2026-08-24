@@ -1,0 +1,1 @@
+Documented the `affine` variant: it now appears in the algorithm-variant tables, has its own section deriving the per-form interval, and is included in the Sphinx API reference, which omitted the module entirely. by @parulgupta1004

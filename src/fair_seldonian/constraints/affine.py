@@ -308,6 +308,8 @@ def affine_upper_bound(
     optimal - the forms have different widths, so a convex allocation would do
     slightly better - but the dominant saving comes from having ``K`` intervals
     instead of one per leaf occurrence.
+
+    :type root: ~fair_seldonian.constraints.expression_tree.ExprTree
     """
     upper_forms, _ = compile_bounds(root)
     if not upper_forms:
