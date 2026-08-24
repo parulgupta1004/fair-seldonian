@@ -51,6 +51,49 @@ jobs:
         run: python -c "import sys; assert not sys._is_gil_enabled(), 'GIL should be disabled'"
       - run: pytest --cov --cov-branch --cov-report=xml
 
+  # Executes the example notebooks. One Python version is enough: the notebooks
+  # are small, and version-specific breakage is already covered by `test`.
+  notebooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev,notebook-test]"
+      # The notebook tests use pytest.importorskip so that a contributor without
+      # the extra is not blocked. That means a broken install here would make
+      # them skip and still report green, so assert the imports up front.
+      - name: Notebook execution dependencies are present
+        run: python -c "import nbclient, nbformat, ipykernel, matplotlib"
+      # `-k notebook` exits 5 if it collects nothing, so the job also fails if
+      # these tests are ever renamed or dropped rather than silently passing.
+      - run: pytest -k notebook -v --no-cov
+
+  # Installs the built package with no extras at all, outside the source tree,
+  # and imports the public API. Catches two things the editable `.[dev]` install
+  # in `test` cannot: modules missing from the wheel, and a subpackage that
+  # requires an optional dependency merely to import -- which is exactly how
+  # `fair_seldonian.experiments` came to need matplotlib.
+  packaging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install .
+      - name: Public API imports on a base install
+        working-directory: /tmp
+        run: |
+          python -c "
+          import fair_seldonian as fs
+          from fair_seldonian import QSA, SeldonianConfig, demographic_parity
+          from fair_seldonian.constraints.affine import affine_upper_bound
+          from fair_seldonian.experiments import clopper_pearson, summarise, run_study
+          print('fair-seldonian', fs.__version__, 'imports clean with no extras')
+          "
+
   changelog:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
