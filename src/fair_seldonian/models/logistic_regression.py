@@ -109,19 +109,25 @@ def eval_ghat(
     config: SeldonianConfig = DEFAULT_CONFIG,
 ) -> Bound:
     if seldonian_type == "base":
-        return eval_ghat_base(theta, theta1, X, Y, T, False, config)
+        bound = eval_ghat_base(theta, theta1, X, Y, T, False, config)
     elif seldonian_type == "mod":
-        return eval_ghat_base(theta, theta1, X, Y, T, True, config)
+        bound = eval_ghat_base(theta, theta1, X, Y, T, True, config)
     elif seldonian_type == "bound":
-        return eval_ghat_extend(theta, theta1, X, Y, T, True, False, False, config)
+        bound = eval_ghat_extend(theta, theta1, X, Y, T, True, False, False, config)
     elif seldonian_type == "const":
-        return eval_ghat_extend(theta, theta1, X, Y, T, False, True, False, config)
+        bound = eval_ghat_extend(theta, theta1, X, Y, T, False, True, False, config)
     elif seldonian_type == "opt":
-        return eval_ghat_extend(theta, theta1, X, Y, T, True, True, True, config)
+        bound = eval_ghat_extend(theta, theta1, X, Y, T, True, True, True, config)
     elif seldonian_type == "affine":
-        return ghat_affine(theta, theta1, X, Y, T, None, config)
+        bound = ghat_affine(theta, theta1, X, Y, T, None, config)
     else:
         raise ValueError(f"Unknown seldonian_type: {seldonian_type}")
+    # A bound is a number, not a node in an autograd graph. simple_logistic
+    # returns parameters with requires_grad set and predict propagates that, so
+    # without this every `float(eval_ghat(...))` warns about converting a tensor
+    # that requires grad. Nothing here differentiates through a bound - candidate
+    # selection uses derivative-free Powell - so detach at the public boundary.
+    return bound.detach() if isinstance(bound, torch.Tensor) else bound
 
 
 def ghat(

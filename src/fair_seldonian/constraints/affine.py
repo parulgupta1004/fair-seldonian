@@ -231,6 +231,8 @@ def form_upper_bound(
                 per_sample = per_sample + coefficient * contributions(
                     token, Y, predicted_Y, T
                 ).to(torch.float64)
+        # The bound is a number, not a graph node; see eval_ghat.
+        per_sample = per_sample.detach()
         if inequality == Inequality.BETTING:
             # Betting works on values in [0, 1], and does not decompose across
             # groups the way a variance does, so each group's contribution is
