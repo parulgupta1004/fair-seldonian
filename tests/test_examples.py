@@ -11,7 +11,9 @@ against the current API, not that their numbers hold at any particular value.
 
 from __future__ import annotations
 
+import copy
 import json
+import math
 import re
 import subprocess
 import sys
@@ -122,3 +124,125 @@ def test_experiments_imports_without_matplotlib() -> None:
         "fair_seldonian.experiments must import without matplotlib\n"
         f"--- stderr ---\n{completed.stderr}"
     )
+
+
+# --------------------------------------------------------------------------
+# Notebook output freshness
+# --------------------------------------------------------------------------
+#: Relative tolerance when comparing numbers inside notebook output.
+#:
+#: The committed outputs were produced on one machine and CI re-runs them on
+#: another, so the last digits of a float can legitimately differ. This is loose
+#: enough to absorb that and far tighter than any change worth noticing: the
+#: staleness this exists to catch looked like 0.997 against 0.855, and a version
+#: banner reading 2.1.1 against 3.1.0.
+OUTPUT_RTOL = 1e-4
+
+_NUMBER = re.compile(r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
+
+
+def _output_text(output: dict) -> str:
+    """The human-readable text of one output, ignoring any binary payload."""
+    if output.get("output_type") == "stream":
+        return "".join(output.get("text", ""))
+    return "".join(output.get("data", {}).get("text/plain", ""))
+
+
+def _output_shape(cell: dict) -> list[tuple[str, str]]:
+    """``(kind, text)`` per output.
+
+    Image payloads are reduced to their mime type. Comparing PNG bytes across
+    matplotlib versions and platforms would fail constantly and say nothing
+    about whether the notebook is current; that a figure was produced at all is
+    the part worth pinning.
+    """
+    shapes: list[tuple[str, str]] = []
+    for output in cell.get("outputs", []):
+        kind = output.get("output_type")
+        if kind == "error":
+            shapes.append(("error", output.get("ename", "")))
+            continue
+        if kind == "stream":
+            # Jupyter splits stdout into chunks on flush boundaries, and where
+            # those fall is not reproducible: the same print loop can arrive as
+            # three outputs or four. Coalesce consecutive chunks from the same
+            # stream, which is what a reader sees anyway.
+            label = f"stream:{output.get('name', 'stdout')}"
+            if shapes and shapes[-1][0] == label:
+                shapes[-1] = (label, shapes[-1][1] + _output_text(output))
+            else:
+                shapes.append((label, _output_text(output)))
+            continue
+        mimes = ",".join(sorted(output.get("data", {})))
+        shapes.append((f"{kind}:{mimes}", _output_text(output)))
+    return shapes
+
+
+def _texts_agree(committed: str, produced: str) -> bool:
+    """Equal once numbers are allowed to drift within ``OUTPUT_RTOL``."""
+    if committed == produced:
+        return True
+    # Everything that is not a number must match exactly, so a changed label,
+    # a new warning or a reordered line is still a failure.
+    if _NUMBER.sub("#", committed) != _NUMBER.sub("#", produced):
+        return False
+    for a, b in zip(_NUMBER.findall(committed), _NUMBER.findall(produced)):
+        if not math.isclose(float(a), float(b), rel_tol=OUTPUT_RTOL, abs_tol=1e-9):
+            return False
+    return True
+
+
+@pytest.mark.parametrize(
+    "notebook",
+    [n for n in NOTEBOOKS if n.name not in NETWORK_NOTEBOOKS],
+    ids=lambda p: p.name,
+)
+def test_notebook_outputs_are_current(notebook: Path) -> None:
+    """Committed notebook outputs must match what the notebook now produces.
+
+    Executing a notebook proves it runs; it says nothing about whether the
+    outputs stored in the file are the ones it would produce today. The docs
+    render notebooks with ``nb_execution_mode = "off"``, so stale outputs are
+    published verbatim and look authoritative -- the site once advertised a
+    2.1.1 version banner and true-positive rates of 0.997, both artifacts of
+    code that had since been fixed.
+
+    The notebook is executed on a copy in memory. Nothing is written and no
+    diff is produced: a mismatch simply fails, naming the cell.
+    """
+    nbformat = pytest.importorskip("nbformat")
+    nbclient = pytest.importorskip("nbclient")
+
+    committed_nb = nbformat.read(notebook, as_version=4)
+    fresh_nb = copy.deepcopy(committed_nb)
+    nbclient.NotebookClient(
+        fresh_nb,
+        timeout=900,
+        kernel_name="python3",
+        resources={"metadata": {"path": str(notebook.parent)}},
+    ).execute()
+
+    stale = f"{notebook.name} is stale - re-run it and commit the outputs."
+    for index, (committed, produced) in enumerate(
+        zip(committed_nb.cells, fresh_nb.cells)
+    ):
+        if committed.cell_type != "code":
+            continue
+        want, got = _output_shape(committed), _output_shape(produced)
+        if len(want) != len(got):
+            pytest.fail(
+                f"{stale}\ncell {index}: has {len(want)} committed output(s), "
+                f"execution produced {len(got)}"
+            )
+        for (want_kind, want_text), (got_kind, got_text) in zip(want, got):
+            if want_kind != got_kind:
+                pytest.fail(
+                    f"{stale}\ncell {index}: committed a {want_kind} output, "
+                    f"execution produced {got_kind}"
+                )
+            if not _texts_agree(want_text, got_text):
+                pytest.fail(
+                    f"{stale}\ncell {index} output differs.\n"
+                    f"--- committed ---\n{want_text}\n"
+                    f"--- produced now ---\n{got_text}"
+                )
