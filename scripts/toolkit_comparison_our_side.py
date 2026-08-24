@@ -1,5 +1,15 @@
+"""Bound the same constraint, on the same predictions, with this library.
+
+Part of the toolkit head-to-head; run the three scripts in this order:
+``toolkit_comparison_toolkit_side.py`` (needs the reference ``seldonian``
+package), then ``toolkit_comparison_our_side.py``, then
+``toolkit_comparison_summary.py``. They hand data to each other through
+``exp/h2h/`` beside the repo, which is gitignored.
+"""
+
 import json
 import warnings
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -13,10 +23,15 @@ from fair_seldonian.constraints.expression_tree import (
 )
 from fair_seldonian.constraints.inequalities import Inequality
 
+WORK_DIR = Path(__file__).resolve().parents[1] / "exp" / "h2h"
+WORK_DIR.mkdir(parents=True, exist_ok=True)
+DATA_FILE = WORK_DIR / "h2h_data.npz"
+TOOLKIT_FILE = WORK_DIR / "h2h_toolkit.json"
+
 warnings.filterwarnings("ignore")
-d = np.load("/tmp/h2h_data.npz", allow_pickle=True)
+d = np.load(DATA_FILE, allow_pickle=True)
 T, Y, p = d["T"].astype(str), d["Y"], d["p"]
-tk = json.load(open("/tmp/h2h_toolkit.json"))
+tk = json.load(open(TOOLKIT_FILE))
 
 Ys, Ts, preds = pd.Series(Y), pd.Series(T), torch.tensor(p)
 LR.predict = lambda th, t1, X: preds  # feed identical probabilities

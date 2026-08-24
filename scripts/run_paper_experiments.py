@@ -6,8 +6,10 @@ LaTeX source already references, plus ``summary.csv`` per variant and a combined
 
 Usage::
 
-    python scripts/run_paper_experiments.py --out ~/Downloads/FairSeldonian \\
+    python scripts/run_paper_experiments.py --out exp/paper \\
         --trials 40 --jobs 8
+
+``--out`` is required and may be any directory; ``exp/`` is gitignored.
 """
 
 from __future__ import annotations
