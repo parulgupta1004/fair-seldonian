@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import NamedTuple
 
 import numpy as np
 import torch
@@ -10,6 +11,41 @@ from ..config import DEFAULT_CONFIG, SeldonianConfig
 from ..models.logistic_regression import eval_ghat, f_hat, ghat, simple_logistic
 
 logger = logging.getLogger(__name__)
+
+
+class Diagnostics(NamedTuple):
+    """Why a run ended the way it did.
+
+    ``candidate_upper_bound > 0`` means candidate selection never reached a
+    feasible point and the safety test was doomed before it ran; that is a
+    *different* failure from a feasible candidate being rejected on the safety
+    data, and the two call for different remedies. Reporting only "no solution
+    found" conflates them, and a non-monotone solution curve then invites an
+    explanation in terms of the bound or the iteration budget when the real cause
+    is that candidate selection never left the infeasible region.
+    """
+
+    candidate_upper_bound: float
+    safety_upper_bound: float
+    optimizer_status: int
+    optimizer_iterations: int
+    optimizer_evaluations: int
+    optimizer_message: str
+
+    @property
+    def failure_mode(self) -> str:
+        if self.safety_upper_bound <= 0.0:
+            return "solution_found"
+        if self.candidate_upper_bound > 0.0:
+            return "candidate_infeasible"
+        return "safety_test_rejected"
+
+
+class QSAResult(NamedTuple):
+    theta: torch.Tensor
+    theta1: torch.Tensor
+    passed_safety: bool
+    diagnostics: Diagnostics
 
 
 def split_candidate_safety(
@@ -49,7 +85,7 @@ def QSA(
     init_sol: torch.Tensor | None,
     init_sol1: torch.Tensor | None,
     config: SeldonianConfig = DEFAULT_CONFIG,
-) -> tuple[torch.Tensor, torch.Tensor, bool]:
+) -> QSAResult:
     """
     Run the quasi-Seldonian algorithm.
 
@@ -62,25 +98,40 @@ def QSA(
         solution to be independent of the safety set.
     :param init_sol1: The additional initial theta values for the model
     :param config: Algorithm configuration
-    :return: (theta, theta1, passed_safety) tuple
+    :return: :class:`QSAResult`
     """
     cand_X, safe_X, cand_Y, safe_Y, cand_T, safe_T = split_candidate_safety(
         X, Y, T, config.candidate_ratio
     )
 
-    theta, theta1 = get_cand_solution(
+    theta, theta1, opt = get_cand_solution(
         cand_X, cand_Y, cand_T, seldonian_type, init_sol, init_sol1, config
     )
 
-    if logger.isEnabledFor(logging.DEBUG):
-        cand_upper_bound = eval_ghat(
-            theta, theta1, cand_X, cand_Y, cand_T, seldonian_type, config
-        )
-        logger.debug(f"Actual cand sol upperbound: {cand_upper_bound}")
-    passed_safety = safety_test(
-        theta, theta1, safe_X, safe_Y, safe_T, seldonian_type, config
+    candidate_upper_bound = float(
+        eval_ghat(theta, theta1, cand_X, cand_Y, cand_T, seldonian_type, config)
     )
-    return theta, theta1, passed_safety
+    safety_upper_bound = float(
+        eval_ghat(theta, theta1, safe_X, safe_Y, safe_T, seldonian_type, config)
+    )
+    diagnostics = Diagnostics(
+        candidate_upper_bound=candidate_upper_bound,
+        safety_upper_bound=safety_upper_bound,
+        optimizer_status=int(getattr(opt, "status", -1)),
+        optimizer_iterations=int(getattr(opt, "nit", -1)),
+        optimizer_evaluations=int(getattr(opt, "nfev", -1)),
+        optimizer_message=str(getattr(opt, "message", "")),
+    )
+    logger.debug(
+        "candidate u=%.6f safety u=%.6f mode=%s optimizer=%s nit=%d nfev=%d",
+        candidate_upper_bound,
+        safety_upper_bound,
+        diagnostics.failure_mode,
+        diagnostics.optimizer_message,
+        diagnostics.optimizer_iterations,
+        diagnostics.optimizer_evaluations,
+    )
+    return QSAResult(theta, theta1, safety_upper_bound <= 0.0, diagnostics)
 
 
 def safety_test(
@@ -119,18 +170,11 @@ def get_cand_solution(
     init_sol: torch.Tensor | None,
     init_sol1: torch.Tensor | None,
     config: SeldonianConfig = DEFAULT_CONFIG,
-) -> tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, object]:
     """
     This function provides the candidate solution.
 
-    :param cand_data_X: The features of the candidate dataset
-    :param cand_data_Y: The corresponding labels of the candidate dataset
-    :param cand_data_T: The corresponding sensitive attributes of the candidate dataset
-    :param seldonian_type: The mode used in the experiment
-    :param init_sol: The initial theta values for the model
-    :param init_sol1: The additional initial theta values for the model
-    :param config: Algorithm configuration
-    :return: The candidate solution (theta, theta1).
+    :return: ``(theta, theta1, optimizer_result)``.
     """
     if init_sol is None or init_sol1 is None:
         init_sol, init_sol1 = simple_logistic(cand_data_X, cand_data_Y)
@@ -144,7 +188,7 @@ def get_cand_solution(
     )
     theta = torch.tensor(np.atleast_1d(res.x)[:-1])
     theta1 = torch.tensor(np.array([np.atleast_1d(res.x)[-1]]))
-    return theta, theta1
+    return theta, theta1, res
 
 
 def cand_obj(

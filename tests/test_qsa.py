@@ -18,19 +18,19 @@ def _split(
 
 def test_qsa() -> None:
     Xt, Yt, Tt, _, _, _ = _split()
-    theta, theta1, passed = QSA(Xt, Yt, Tt, "base", None, None)
+    theta, theta1, passed, _ = QSA(Xt, Yt, Tt, "base", None, None)
     assert theta.shape[0] == 5 and theta1.shape[0] == 1 and isinstance(passed, bool)
 
 
 def test_qsa_returns_tuple() -> None:
     Xt, Yt, Tt, _, _, _ = _split()
     result = QSA(Xt, Yt, Tt, "base", None, None)
-    assert isinstance(result, tuple) and len(result) == 3
+    assert isinstance(result, tuple) and len(result) == 4
 
 
 def test_qsa_opt() -> None:
     Xt, Yt, Tt, _, _, _ = _split()
-    theta, theta1, _ = QSA(Xt, Yt, Tt, "opt", None, None)
+    theta, theta1, _, _ = QSA(Xt, Yt, Tt, "opt", None, None)
     assert theta is not None and theta1 is not None
 
 
@@ -44,14 +44,14 @@ def test_safety_test_all_modes() -> None:
 def test_qsa_custom_config() -> None:
     config = SeldonianConfig(delta=0.01, candidate_ratio=0.5)
     Xt, Yt, Tt, _, _, _ = _split()
-    theta, theta1, passed = QSA(Xt, Yt, Tt, "base", None, None, config)
+    theta, theta1, passed, _ = QSA(Xt, Yt, Tt, "base", None, None, config)
     assert theta is not None and theta1 is not None and isinstance(passed, bool)
 
 
 def test_qsa_ttest_config() -> None:
     config = SeldonianConfig(inequality=Inequality.T_TEST)
     Xt, Yt, Tt, _, _, _ = _split()
-    theta, theta1, passed = QSA(Xt, Yt, Tt, "base", None, None, config)
+    theta, theta1, passed, _ = QSA(Xt, Yt, Tt, "base", None, None, config)
     assert isinstance(passed, bool)
 
 
