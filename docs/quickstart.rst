@@ -67,16 +67,15 @@ selects the algorithm variant (see :doc:`variants` for details):
 
 .. code-block:: bash
 
-   uv run python -m fair_seldonian.experiments.runner <mode>
+   uv run python scripts/run_paper_experiments.py --out exp/paper --only <mode>
 
-where ``<mode>`` is one of ``base``, ``mod``, ``bound``, ``const``, or ``opt``.
+where ``<mode>`` is one of ``base``, ``mod``, ``bound``, ``const``, ``opt`` or
+``affine``. Omit ``--only`` to run every variant.
 
-Results are saved as ``.npz`` files in ``exp/exp_<mode>/bin/``. To aggregate
-results and generate plots:
-
-.. code-block:: bash
-
-   uv run python -m fair_seldonian.experiments.plots
+Each variant writes ``summary.csv`` and its four result panels to
+``exp/paper/<mode>/``; the run, the aggregation and the plots all happen in that
+one command. Use ``--trials`` to set the repetitions per dataset size (default
+40) and ``--jobs`` to run trials in parallel.
 
 The generated plots show three metrics as a function of training set size:
 
@@ -90,36 +89,9 @@ Library Usage
 
 The framework can also be used programmatically:
 
-.. code-block:: python
-
-   from fair_seldonian.algorithms import QSA
-   from fair_seldonian.config import SeldonianConfig
-   from fair_seldonian.models import simple_logistic, eval_ghat
-   from fair_seldonian.data import get_data, data_split
-
-   # Generate synthetic data with configurable group ratios
-   data = get_data(N=10000, features=5, t_ratio=0.4,
-                   tp0_ratio=0.4, tp1_ratio=0.6, random_seed=42)
-
-   # Split into train and test sets (80/20)
-   X_test, Y_test, T_test, X_train, Y_train, T_train = data_split(
-       frac=0.5, all_data=data, random_state=1, m_test=0.2)
-
-   # Run the Quasi-Seldonian Algorithm with all optimizations
-   result = QSA(
-       X_train, Y_train, T_train,
-       seldonian_type="opt",
-       init_sol=None, init_sol1=None,
-   )
-   theta, theta1 = result.theta, result.theta1
-
-   if result.passed_safety:
-       # Evaluate the constraint on held-out test data
-       violation = eval_ghat(theta, theta1,
-                             X_test, Y_test, T_test, "opt")
-       print(f"Constraint upper bound on test data: {violation:.6f}")
-   else:
-       print("No Solution Found — constraint could not be satisfied.")
+.. literalinclude:: ../examples/quickstart.py
+   :language: python
+   :end-before: if __name__
 
 Configuration
 -------------
@@ -155,24 +127,10 @@ a relaxed equalized opportunity condition (see :doc:`intro` for details).
 
 **Example: custom configuration**
 
-.. code-block:: python
-
-   from fair_seldonian.algorithms import QSA
-   from fair_seldonian.config import SeldonianConfig
-   from fair_seldonian.constraints.inequalities import Inequality
-
-   config = SeldonianConfig(
-       delta=0.01,
-       inequality=Inequality.T_TEST,
-       candidate_ratio=0.5,
-   )
-
-   result = QSA(
-       X_train, Y_train, T_train,
-       seldonian_type="opt",
-       init_sol=None, init_sol1=None,
-       config=config,
-   )
+.. literalinclude:: ../examples/custom_constraint.py
+   :language: python
+   :start-at: strict = SeldonianConfig(
+   :end-before: evaluate("Stricter
 
 Extending the Framework
 -----------------------

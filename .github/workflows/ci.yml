@@ -4,6 +4,10 @@ on:
   push:
     branches: [master]
   pull_request:
+  # Weekly, so the dataset-downloading notebook job runs without gating PRs.
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
 
 jobs:
   lint:
@@ -50,6 +54,74 @@ jobs:
       - name: Verify GIL is disabled
         run: python -c "import sys; assert not sys._is_gil_enabled(), 'GIL should be disabled'"
       - run: pytest --cov --cov-branch --cov-report=xml
+
+  # Executes the example notebooks. One Python version is enough: the notebooks
+  # are small, and version-specific breakage is already covered by `test`.
+  notebooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev,notebook-test]"
+      # The notebook tests use pytest.importorskip so that a contributor without
+      # the extra is not blocked. That means a broken install here would make
+      # them skip and still report green, so assert the imports up front.
+      - name: Notebook execution dependencies are present
+        run: python -c "import nbclient, nbformat, ipykernel, matplotlib"
+      # `-k notebook` exits 5 if it collects nothing, so the job also fails if
+      # these tests are ever renamed or dropped rather than silently passing.
+      - run: pytest -k notebook -v --no-cov
+
+  # The Adult notebook downloads its dataset, so it runs on a schedule and on
+  # demand rather than on every pull request: a third party being unreachable
+  # should not fail unrelated work. Pull requests still check it for stale API
+  # usage via test_notebooks_do_not_unpack_qsa_as_a_three_tuple, which needs no
+  # network. SCIKIT_LEARN_DATA keeps the download out of a home directory that
+  # may not be writable, and lets the cache below find it.
+  notebooks-network:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      SCIKIT_LEARN_DATA: ${{ github.workspace }}/.sklearn-data
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.sklearn-data
+          key: sklearn-adult-v2
+      - run: pip install -e ".[dev,notebook-test]"
+      - name: Notebook execution dependencies are present
+        run: python -c "import nbclient, nbformat, ipykernel, matplotlib"
+      - run: pytest -k notebook -m network -v --no-cov
+
+  # Installs the built package with no extras at all, outside the source tree,
+  # and imports the public API. Catches two things the editable `.[dev]` install
+  # in `test` cannot: modules missing from the wheel, and a subpackage that
+  # requires an optional dependency merely to import -- which is exactly how
+  # `fair_seldonian.experiments` came to need matplotlib.
+  packaging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install .
+      - name: Public API imports on a base install
+        working-directory: /tmp
+        run: |
+          python -c "
+          import fair_seldonian as fs
+          from fair_seldonian import QSA, SeldonianConfig, demographic_parity
+          from fair_seldonian.constraints.affine import affine_upper_bound
+          from fair_seldonian.experiments import clopper_pearson, summarise, run_study
+          print('fair-seldonian', fs.__version__, 'imports clean with no extras')
+          "
 
   changelog:
     runs-on: ubuntu-latest
