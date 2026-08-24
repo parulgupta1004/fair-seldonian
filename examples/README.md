@@ -23,6 +23,7 @@ open them with `jupyter lab` after installing the notebook extras
 | [`cells_vs_rates.py`](cells_vs_rates.py) | `TP(g)` is a joint probability over the whole group; `TPR(g)` is a rate over its positive rows. Constraining one is not constraining the other. |
 | [`minority_group.py`](minority_group.py) | Why a small protected group is expensive however large the dataset, and which inequality softens it. |
 | [`real_world_adult.ipynb`](real_world_adult.ipynb) | A real dataset (UCI Adult income): an unconstrained model's demographic-parity gap vs. QSA refusing to certify it. Ships with saved outputs so results render on GitHub; needs network access to re-run. |
+| [`demographic_parity_guarantee.ipynb`](demographic_parity_guarantee.ipynb) | The workflow start to finish: define demographic parity, choose `epsilon` and `delta`, train, and read the verdict — with each knob varied on its own to show the two ways a run can be refused. |
 | [`quickstart.ipynb`](quickstart.ipynb) | The full guided notebook: data generation, certification, fair vs. unfair, constraint decoding, all the algorithm variants, and accuracy-vs-fairness plots. |
 
 ## Notes
