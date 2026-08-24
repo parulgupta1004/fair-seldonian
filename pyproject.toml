@@ -163,7 +163,10 @@ showcontent = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=fair_seldonian --cov-branch --cov-report=term-missing"
+addopts = "--cov=fair_seldonian --cov-branch --cov-report=term-missing -m 'not network'"
+markers = [
+    "network: downloads a dataset; excluded by default, run with -m network",
+]
 
 [tool.coverage.run]
 source = ["fair_seldonian"]

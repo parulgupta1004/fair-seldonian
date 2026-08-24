@@ -29,9 +29,22 @@ def test_examples_are_discovered() -> None:
     assert EXAMPLES, "no example scripts found - has examples/ moved?"
 
 
-#: Notebooks that reach the network, so they cannot run as part of the suite.
-#: They are still linted for a stale API by ``test_notebooks_do_not_unpack_qsa``.
+#: Notebooks that download a dataset. They run under the ``network`` marker,
+#: which the default ``-m "not network"`` in pyproject excludes, so a third
+#: party being down cannot fail an unrelated pull request. sklearn caches to
+#: ``SCIKIT_LEARN_DATA`` when set, which keeps the download out of a home
+#: directory that may not be writable.
 NETWORK_NOTEBOOKS = {"real_world_adult.ipynb"}
+
+
+def _notebook_params() -> list:
+    return [
+        pytest.param(
+            n, marks=pytest.mark.network if n.name in NETWORK_NOTEBOOKS else ()
+        )
+        for n in NOTEBOOKS
+    ]
+
 
 NOTEBOOKS = sorted(
     (Path(__file__).resolve().parent.parent / "examples").glob("*.ipynb")
@@ -53,11 +66,7 @@ def test_example_runs(script: Path) -> None:
     assert completed.stdout.strip(), f"{script.name} produced no output"
 
 
-@pytest.mark.parametrize(
-    "notebook",
-    [n for n in NOTEBOOKS if n.name not in NETWORK_NOTEBOOKS],
-    ids=lambda p: p.name,
-)
+@pytest.mark.parametrize("notebook", _notebook_params(), ids=lambda p: p.name)
 def test_notebook_executes(notebook: Path) -> None:
     """Execute the offline notebooks.
 
@@ -192,11 +201,7 @@ def _texts_agree(committed: str, produced: str) -> bool:
     return True
 
 
-@pytest.mark.parametrize(
-    "notebook",
-    [n for n in NOTEBOOKS if n.name not in NETWORK_NOTEBOOKS],
-    ids=lambda p: p.name,
-)
+@pytest.mark.parametrize("notebook", _notebook_params(), ids=lambda p: p.name)
 def test_notebook_outputs_are_current(notebook: Path) -> None:
     """Committed notebook outputs must match what the notebook now produces.
 
