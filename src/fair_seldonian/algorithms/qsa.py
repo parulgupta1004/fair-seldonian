@@ -24,17 +24,18 @@ def QSA(
     config: SeldonianConfig = DEFAULT_CONFIG,
 ) -> tuple[torch.Tensor, torch.Tensor, bool]:
     """
-    This function is used to run the qsa (Quasi-Seldonian Algorithm)
+    Run the quasi-Seldonian algorithm.
 
     :param X: The features of the dataset
     :param Y: The corresponding labels of the dataset
     :param T: The corresponding sensitive attributes of the dataset
     :param seldonian_type: The mode used in the experiment
-    :param init_sol: The initial theta values for the model
+    :param init_sol: Initial theta values for the model. Must not depend on data
+        that ends up in the safety split - the guarantee requires the candidate
+        solution to be independent of the safety set.
     :param init_sol1: The additional initial theta values for the model
     :param config: Algorithm configuration
-    :return: (thetexit
-    a, theta1, passed_safety) tuple
+    :return: (theta, theta1, passed_safety) tuple
     """
     cand_data_X, safe_data_X, cand_data_Y, safe_data_Y = cast(
         "tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]",
@@ -56,6 +57,7 @@ def QSA(
         init_sol1,
         config,
     )
+
     if logger.isEnabledFor(logging.DEBUG):
         cand_upper_bound = eval_ghat(
             theta, theta1, cand_data_X, cand_data_Y, cand_data_T, seldonian_type, config
@@ -86,15 +88,13 @@ def safety_test(
     :param safe_data_T: The corresponding sensitive attributes of the safety dataset
     :param seldonian_type: The mode used in the experiment
     :param config: Algorithm configuration
-    :return: Bool value of whether the candidate solution passed safety test or not.
+    :return: Whether the candidate solution passed the safety test.
     """
     upper_bound = eval_ghat(
         theta, theta1, safe_data_X, safe_data_Y, safe_data_T, seldonian_type, config
     )
     logger.debug(f"Safety test upperbound: {upper_bound}")
-    if upper_bound > 0.0:
-        return False
-    return True
+    return bool(upper_bound <= 0.0)
 
 
 def get_cand_solution(
@@ -118,36 +118,19 @@ def get_cand_solution(
     :param config: Algorithm configuration
     :return: The candidate solution (theta, theta1).
     """
-    if init_sol is None:
+    if init_sol is None or init_sol1 is None:
         init_sol, init_sol1 = simple_logistic(cand_data_X, cand_data_Y)
-    # init_sol and init_sol1 are always supplied (or recomputed) as a pair.
-    assert init_sol1 is not None
-    if logger.isEnabledFor(logging.DEBUG):
-        init_upper_bound = eval_ghat(
-            init_sol,
-            init_sol1,
-            cand_data_X,
-            cand_data_Y,
-            cand_data_T,
-            seldonian_type,
-            config,
-        )
-        logger.debug(f"Initial LS upperbound: {init_upper_bound}")
-    theta = init_sol.detach().numpy()
-    theta1 = init_sol1.detach().numpy()
-    init_theta = np.concatenate((theta, theta1))
+    init_theta = np.concatenate((init_sol.detach().numpy(), init_sol1.detach().numpy()))
     res = minimize(
         cand_obj,
         x0=init_theta,
-        method="Powell",
-        options={"disp": False, "maxiter": 10000},
+        method=config.optimizer,
+        options={"disp": False, "maxiter": config.max_iter},
         args=(cand_data_X, cand_data_Y, cand_data_T, seldonian_type, config),
     )
-    theta_numpy = res.x[:-1]
-    theta1_numpy = res.x[-1]
-    theta0 = torch.tensor(theta_numpy)
-    theta1 = torch.tensor(np.array([theta1_numpy]))
-    return theta0, theta1
+    theta = torch.tensor(np.atleast_1d(res.x)[:-1])
+    theta1 = torch.tensor(np.array([np.atleast_1d(res.x)[-1]]))
+    return theta, theta1
 
 
 def cand_obj(
@@ -159,33 +142,30 @@ def cand_obj(
     config: SeldonianConfig,
 ) -> float:
     """
-    Objective function minimized by the optimizer.
+    Objective minimised by candidate selection: ``log_loss + penalty * max(0, u)``.
 
-    :param theta: The theta values for the model
-    :param cand_data_X: The features of the candidate dataset
-    :param cand_data_Y: The corresponding labels of the candidate dataset
-    :param cand_data_T: The corresponding sensitive attributes of the candidate dataset
-    :param seldonian_type: The mode used in the experiment
-    :param config: Algorithm configuration
-    :return: The objective value.
+    Continuous everywhere, order 1, and equal to the log loss on the feasible side.
+    See :attr:`~fair_seldonian.config.SeldonianConfig.penalty` for why a
+    discontinuous barrier defeats the optimizer.
     """
-    theta_numpy = theta[:-1]
-    theta1_numpy = theta[-1]
-    theta0 = torch.tensor(theta_numpy)
-    theta1 = torch.tensor(np.array([theta1_numpy]))
+    theta0 = torch.tensor(theta[:-1])
+    theta1 = torch.tensor(np.array([theta[-1]]))
 
-    result = f_hat(theta0, theta1, cand_data_X, cand_data_Y)
-    upper_bound = ghat(
-        theta0,
-        theta1,
-        cand_data_X,
-        cand_data_Y,
-        cand_data_T,
-        config.candidate_ratio,
-        seldonian_type,
-        config,
+    log_loss = -float(f_hat(theta0, theta1, cand_data_X, cand_data_Y))
+    upper_bound = float(
+        ghat(
+            theta0,
+            theta1,
+            cand_data_X,
+            cand_data_Y,
+            cand_data_T,
+            config.candidate_ratio,
+            seldonian_type,
+            config,
+        )
     )
-
-    if upper_bound > 0.0:
-        result = -10000.0 - upper_bound
-    return float(-result)
+    if not np.isfinite(upper_bound):
+        # Degenerate split (e.g. a group vanished from this subsample): steer the
+        # optimizer away rather than poisoning the search with inf/NaN.
+        return float(log_loss + config.penalty)
+    return float(log_loss + config.penalty * max(0.0, upper_bound))

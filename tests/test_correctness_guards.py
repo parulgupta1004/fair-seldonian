@@ -17,6 +17,7 @@ import pytest
 import torch
 from sklearn.metrics import log_loss
 
+from fair_seldonian.config import SeldonianConfig
 from fair_seldonian.constraints.inequalities import (
     Inequality,
     check_constraint_groups,
@@ -145,6 +146,46 @@ def test_perfect_classifier_approaches_zero_loss() -> None:
         f_hat(torch.tensor(np.array([1.0])), torch.tensor(np.array([0.0])), logits, Y)
     )
     assert loss < 1e-6
+
+
+# --------------------------------------------------------------------------
+# Candidate selection
+# --------------------------------------------------------------------------
+def test_candidate_objective_stays_resolvable_against_powell_tolerance() -> None:
+    """The penalty must keep the objective order 1, not order 1e4.
+
+    SciPy's Powell convergence test is *relative*: it stops once the improvement
+    falls below ``ftol * |f|``. A barrier of the form ``-10000 - u`` puts ``|f|``
+    at about 1e4, so with the default ``ftol=1e-4`` the stopping threshold is
+    around 1.0 while ``u`` varies by only about 1e-2 across the whole parameter
+    space. Powell then declares success after a single iteration while still
+    infeasible, and ``max_iter`` never binds. This asserts the property that
+    prevents it: two points with materially different constraint violations must
+    differ by more than Powell's relative threshold.
+    """
+    from fair_seldonian.algorithms.qsa import cand_obj
+
+    config = SeldonianConfig(candidate_ratio=0.6)
+    data = get_data(4_000, 5, 0.5, 0.4, 0.6, random_seed=0.5)
+    X = np.asarray(data.iloc[:, :-2], dtype=float)
+    Y = np.asarray(data.iloc[:, -2])
+    T = np.asarray(data.iloc[:, -1])
+
+    fair = np.array([0.1, 0.05, -0.05, 0.02, 0.0, -0.1])
+    unfair = np.array([3.0, 0.05, -0.05, 0.02, 2.5, -0.1])
+    f_fair = cand_obj(fair, X, Y, T, "base", config)
+    f_unfair = cand_obj(unfair, X, Y, T, "base", config)
+
+    assert np.isfinite(f_fair) and np.isfinite(f_unfair)
+    # Order 1, not order 1e4 - this is what makes the relative tolerance usable.
+    assert max(abs(f_fair), abs(f_unfair)) < 100.0
+    # And the gap must clear Powell's default relative stopping threshold.
+    assert abs(f_fair - f_unfair) > 1e-4 * max(abs(f_fair), abs(f_unfair))
+
+
+def test_penalty_must_be_positive() -> None:
+    with pytest.raises(ValueError, match="penalty"):
+        SeldonianConfig(penalty=0.0)
 
 
 # --------------------------------------------------------------------------

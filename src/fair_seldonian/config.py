@@ -40,12 +40,30 @@ class SeldonianConfig:
     :param inequality: concentration inequality used for the confidence bound.
     :param constraint: the postfix constraint string (see above).
     :param candidate_ratio: fraction of data used to pick the candidate solution.
+    :param optimizer: any ``method`` accepted by :func:`scipy.optimize.minimize`.
+    :param max_iter: iteration cap handed to the optimizer.
+    :param penalty: weight on the constraint violation in candidate selection.
+        Candidate selection minimises ``log_loss + penalty * max(0, u)`` where ``u``
+        is the predicted upper bound on the constraint.
+
+        A continuous penalty matters more than it looks. The tempting alternative
+        is a hard barrier - return some large constant plus ``u`` when infeasible
+        and the loss when feasible - but SciPy's Powell convergence test is
+        *relative*: with an objective of order 1e4 and the default ``ftol=1e-4``
+        the stopping threshold is about 1.0, while ``u`` varies by only about 1e-2
+        over the whole parameter space. Powell then reports success after a single
+        iteration while still infeasible, and ``max_iter`` never binds. An exact
+        penalty keeps the objective order 1 and gives the optimizer usable signal
+        on the infeasible side.
     """
 
     delta: float = 0.05
     inequality: Inequality = Inequality.HOEFFDING_INEQUALITY
     constraint: str = "TP(1) TP(0) - abs 0.25 TP(1) * -"
     candidate_ratio: float = 0.40
+    optimizer: str = "Powell"
+    max_iter: int = 10000
+    penalty: float = 100.0
 
     def __post_init__(self) -> None:
         if not 0 < self.delta < 1:
@@ -54,6 +72,8 @@ class SeldonianConfig:
             raise ValueError(
                 f"candidate_ratio must be in (0, 1), got {self.candidate_ratio}"
             )
+        if self.penalty <= 0:
+            raise ValueError(f"penalty must be positive, got {self.penalty}")
         validate_constraint(self.constraint)
 
 
