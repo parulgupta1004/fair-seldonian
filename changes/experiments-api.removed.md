@@ -1,0 +1,1 @@
+Removed the npz-globbing result pipeline: `run_experiments`, `store_result`, `gather_results`, `add_more_results`, `get_existing_experiment_numbers`, `gen_filename`, `save_to_csv`, `stderror` and `load_and_plot_results`. Replaced by `run_study`, `summarise`, `save_summary` and `plot_all`. by @parulgupta1004

@@ -476,3 +476,16 @@ def test_overlapping_conditioning_sets_are_refused() -> None:
     with pytest.raises(NotAffine, match="overlap"):
         for form in forms:
             form_upper_bound(form, Y, pred, T, 0.025)
+
+
+# --------------------------------------------------------------------------
+# Reporting
+# --------------------------------------------------------------------------
+def test_clopper_pearson_does_not_claim_certainty_from_zero_events() -> None:
+    """0/40 violations is not evidence that the rate is below 0.05."""
+    from fair_seldonian.experiments.results import clopper_pearson
+
+    lo, hi = clopper_pearson(0, 40)
+    assert lo == 0.0
+    assert hi > 0.05  # cannot rule out exceeding delta on 40 trials
+    assert math.isclose(hi, 0.0881, abs_tol=5e-3)

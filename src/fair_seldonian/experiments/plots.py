@@ -1,85 +1,167 @@
 from __future__ import annotations
 
-import matplotlib.pyplot as plt  # pyrefly: ignore
-import numpy as np
+import os
 
-from .results import gather_results
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402  # pyrefly: ignore
+
+#: Panel filenames, kept as-is so existing figure references keep resolving.
+LOSS_PANEL = "tutorial7MSE_py.png"
+VIOLATION_PANEL = "tutorial7PrFail1_py.png"
+CONSTRAINT_PANEL = "tutorial7PrFail2_py.png"
+SOLUTION_PANEL = "tutorial7PrSoln_py.png"
 
 
-def load_and_plot_results(
-    file_name: str,
-    ylabel: str,
-    output_file: str,
-    is_y_axis_prob: bool,
-    legend_loc: str,
-) -> None:
-    """
-    Plot results from CSV files and store the final graph.
-
-    :param file_name: The csv file path from where the data is imported
-    :param ylabel: The lable on the Y-axis of the graph
-    :param output_file: The path where the graph image must be stored
-    :param is_y_axis_prob: Bool of whether the Y-axis is probability value or not
-    :param legend_loc: The location of the legend
-    """
-    file_ms, file_QSA, file_QSA_stderror, file_LS, file_LS_stderror = np.loadtxt(
-        file_name, delimiter=",", unpack=True
-    )
-
-    plt.figure()
-
-    plt.xlim(min(file_ms), max(file_ms))
-    plt.xlabel("Amount of data", fontsize=16)
-    plt.xscale("log")
-    plt.xticks(fontsize=12)
-    plt.ylabel(ylabel, fontsize=16)
-
-    if is_y_axis_prob:
-        plt.ylim(-0.1, 1.1)
-
-    plt.plot(file_ms, file_QSA, "b-", linewidth=3, label="QSA")
-    plt.errorbar(file_ms, file_QSA, yerr=file_QSA_stderror, fmt=".k")
-    plt.plot(file_ms, file_LS, "r-", linewidth=3, label="LogRes")
-    plt.errorbar(file_ms, file_LS, yerr=file_LS_stderror, fmt=".k")
-    plt.legend(loc=legend_loc, fontsize=12)
+def _finish(ax, xlabel: str, ylabel: str, out_path: str, legend_loc: str) -> None:
+    ax.set_xlabel(xlabel, fontsize=15)
+    ax.set_ylabel(ylabel, fontsize=15)
+    ax.set_xscale("log")
+    ax.legend(loc=legend_loc, fontsize=11)
+    ax.tick_params(labelsize=11)
     plt.tight_layout()
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+    plt.savefig(out_path, bbox_inches="tight", dpi=140)
+    plt.close()
 
-    plt.savefig(output_file, bbox_inches="tight")
-    plt.show(block=False)
 
+def plot_all(rows: list[dict[str, float]], out_dir: str) -> None:
+    """Write the four result panels for one experiment variant."""
+    ms = [r["m"] for r in rows]
 
-if __name__ == "__main__":
-    csv_path = "exp/lag_exp/csv/"
-    img_path = "exp/lag_exp/images/"
-
-    gather_results()
-
-    load_and_plot_results(
-        csv_path + "fs.csv",
-        "Log Loss",
-        img_path + "tutorial7MSE_py.png",
-        False,
-        "lower right",
+    # Log loss. Only trials that returned a solution contribute, so points backed by
+    # too few solutions are dropped rather than drawn as if they were comparable.
+    fig, ax = plt.subplots(figsize=(5.2, 3.9))
+    shown = [(r["m"], r) for r in rows if r["n_solutions"] >= 5]
+    if shown:
+        ax.errorbar(
+            [m for m, _ in shown],
+            [r["log_loss"] for _, r in shown],
+            yerr=[r["log_loss_se"] for _, r in shown],
+            fmt="o-",
+            color="tab:blue",
+            capsize=3,
+            linewidth=2,
+            label="QSA",
+        )
+    ax.errorbar(
+        ms,
+        [r["ls_log_loss"] for r in rows],
+        yerr=[r["ls_log_loss_se"] for r in rows],
+        fmt="s-",
+        color="tab:red",
+        capsize=3,
+        linewidth=2,
+        label="Logistic regression",
     )
-    load_and_plot_results(
-        csv_path + "solutions_found.csv",
-        "Probability of Solution",
-        img_path + "tutorial7PrSoln_py.png",
-        True,
+    _finish(
+        ax,
+        "Training set size",
+        "Log loss (held-out)",
+        os.path.join(out_dir, LOSS_PANEL),
         "best",
     )
-    load_and_plot_results(
-        csv_path + "failures_g1.csv",
-        r"Probability of $g(a(D))>0$",
-        img_path + "tutorial7PrFail1_py.png",
-        True,
+
+    # Probability that the returned solution actually violates the constraint.
+    fig, ax = plt.subplots(figsize=(5.2, 3.9))
+    ax.errorbar(
+        ms,
+        [r["p_violation"] for r in rows],
+        yerr=[
+            [r["p_violation"] - r["p_violation_lo"] for r in rows],
+            [r["p_violation_hi"] - r["p_violation"] for r in rows],
+        ],
+        fmt="o-",
+        color="tab:blue",
+        capsize=3,
+        linewidth=2,
+        label="QSA",
+    )
+    ax.errorbar(
+        ms,
+        [float(r["ls_g_mean"] > 0) for r in rows],
+        fmt="s-",
+        color="tab:red",
+        linewidth=2,
+        label="Logistic regression",
+    )
+    ax.axhline(0.05, ls="--", color="0.4", label=r"$\delta = 0.05$")
+    ax.set_ylim(-0.05, 1.08)
+    _finish(
+        ax,
+        "Training set size",
+        r"P(true $g(\theta) > 0$)",
+        os.path.join(out_dir, VIOLATION_PANEL),
         "best",
     )
-    load_and_plot_results(
-        csv_path + "upper_bound.csv",
-        r"upper bound",
-        img_path + "tutorial7PrFail2_py.png",
-        False,
+
+    # True constraint value of the returned solutions.
+    fig, ax = plt.subplots(figsize=(5.2, 3.9))
+    if shown:
+        ax.errorbar(
+            [m for m, _ in shown],
+            [r["g_mean"] for _, r in shown],
+            yerr=[r["g_se"] for _, r in shown],
+            fmt="o-",
+            color="tab:blue",
+            capsize=3,
+            linewidth=2,
+            label="QSA",
+        )
+    ax.plot(
+        ms,
+        [r["ls_g_mean"] for r in rows],
+        "s-",
+        color="tab:red",
+        linewidth=2,
+        label="Logistic regression",
+    )
+    ax.axhline(0.0, ls="--", color="0.4")
+    _finish(
+        ax,
+        "Training set size",
+        r"True $g(\theta)$",
+        os.path.join(out_dir, CONSTRAINT_PANEL),
         "best",
     )
-    plt.show()
+
+    # Probability of returning any solution, with the failure split underneath.
+    fig, ax = plt.subplots(figsize=(5.2, 3.9))
+    ax.errorbar(
+        ms,
+        [r["p_solution"] for r in rows],
+        yerr=[
+            [r["p_solution"] - r["p_solution_lo"] for r in rows],
+            [r["p_solution_hi"] - r["p_solution"] for r in rows],
+        ],
+        fmt="o-",
+        color="tab:blue",
+        capsize=3,
+        linewidth=2,
+        label="QSA",
+    )
+    ax.plot(
+        ms,
+        [r["frac_candidate_infeasible"] for r in rows],
+        "^--",
+        color="tab:orange",
+        linewidth=1.4,
+        label="failed: candidate infeasible",
+    )
+    ax.plot(
+        ms,
+        [r["frac_safety_rejected"] for r in rows],
+        "v--",
+        color="tab:green",
+        linewidth=1.4,
+        label="failed: safety test",
+    )
+    ax.set_ylim(-0.05, 1.08)
+    _finish(
+        ax,
+        "Training set size",
+        "Probability of a solution",
+        os.path.join(out_dir, SOLUTION_PANEL),
+        "best",
+    )
