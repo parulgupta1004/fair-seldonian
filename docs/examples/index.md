@@ -11,8 +11,10 @@ pip install "fair-seldonian[notebook]"
 jupyter lab
 ```
 
-The `real_world_adult` notebook needs network access on first run to download
-the UCI Adult dataset. The source `.py` scripts and full listing live in the
+`quickstart` is the guided tour; `demographic_parity_guarantee` walks one
+criterion end to end -- define it, choose the tolerance and the confidence, and
+read the verdict; `real_world_adult` applies the same to a real dataset and
+needs network access on first run to download it. The source `.py` scripts and full listing live in the
 [`examples/` directory](https://github.com/parulgupta1004/fair-seldonian/tree/master/examples)
 of the repository.
 
@@ -20,5 +22,6 @@ of the repository.
 :maxdepth: 1
 
 quickstart
+demographic_parity_guarantee
 real_world_adult
 ```
