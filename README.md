@@ -32,7 +32,6 @@ Built on the Seldonian algorithm framework by [Thomas et al. (2019)](https://www
 git clone https://github.com/parulgupta1004/fair-seldonian.git
 cd fair-seldonian
 uv sync                          # core dependencies
-uv sync --extra experiments      # + Ray for parallel experiments
 uv sync --extra plots            # + matplotlib for visualization
 uv sync --extra notebook         # + JupyterLab to run examples/quickstart.ipynb
 ```
@@ -42,7 +41,7 @@ Or with pip:
 ```bash
 pip install fair-seldonian
 pip install "fair-seldonian[notebook]"          # JupyterLab + matplotlib to run the quickstart
-pip install "fair-seldonian[experiments,plots]"
+pip install "fair-seldonian[plots]"                # + matplotlib for the figures
 ```
 
 ## Usage

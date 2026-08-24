@@ -14,18 +14,18 @@ The recommended installation uses `uv <https://docs.astral.sh/uv/>`_:
    cd fair-seldonian
    uv sync
 
-To include optional dependencies for experiments (Ray) and visualization (matplotlib):
+To include optional dependencies for visualization (matplotlib):
 
 .. code-block:: bash
 
-   uv sync --extra experiments --extra plots
+   uv sync --extra plots
 
 Alternatively, with pip:
 
 .. code-block:: bash
 
    pip install -e .
-   pip install -e ".[experiments,plots]"
+   pip install -e ".[plots]"
 
 Dependencies
 ~~~~~~~~~~~~
@@ -54,9 +54,6 @@ Dependencies
      - Yes
    * - matplotlib
      - Visualization of experiment results
-     - Optional
-   * - Ray
-     - Distributed parallel experiment execution
      - Optional
 
 Running Experiments
