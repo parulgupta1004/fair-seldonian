@@ -48,9 +48,7 @@ pip install "fair-seldonian[experiments,plots]"
 ## Usage
 
 ```python
-from fair_seldonian.algorithms import QSA
-from fair_seldonian.models import eval_ghat
-from fair_seldonian.data import get_data, data_split
+from fair_seldonian import QSA, data_split, eval_ghat, get_data
 
 data = get_data(N=10000, features=5, t_ratio=0.4,
                 tp0_ratio=0.4, tp1_ratio=0.6, random_seed=42)
@@ -69,10 +67,11 @@ else:
 **Custom configuration:**
 
 ```python
-from fair_seldonian.config import SeldonianConfig
-from fair_seldonian.constraints.inequalities import Inequality
+from fair_seldonian import Inequality, SeldonianConfig
 
-config = SeldonianConfig(delta=0.01, inequality=Inequality.T_TEST, candidate_ratio=0.5)
+config = SeldonianConfig(
+    delta=0.01, inequality=Inequality.EMPIRICAL_BERNSTEIN, candidate_ratio=0.5
+)
 result = QSA(X_tr, Y_tr, T_tr, "opt", None, None, config)
 ```
 
