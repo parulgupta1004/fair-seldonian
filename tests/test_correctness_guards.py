@@ -526,13 +526,35 @@ def test_overlapping_conditioning_sets_are_refused() -> None:
 # Reporting
 # --------------------------------------------------------------------------
 def test_clopper_pearson_does_not_claim_certainty_from_zero_events() -> None:
-    """0/40 violations is not evidence that the rate is below 0.05."""
+    """0/40 violations is not evidence that the rate is below 0.05.
+
+    The normal approximation collapses to a zero-width interval at the boundary,
+    so "violation rate 0.00" from 40 trials reads as though it settled something
+    about a 0.05 threshold. It settles nothing: the true rate could be 0.088.
+
+    The endpoints are pinned to their closed forms rather than to rounded
+    decimals. With no successes the Clopper-Pearson limit solves
+    ``(1 - p)^n = alpha/2``, and a loose tolerance would wave through an
+    off-by-one in the beta shape parameters, which shifts the answer by only
+    about 0.002.
+    """
     from fair_seldonian.experiments.results import clopper_pearson
 
     lo, hi = clopper_pearson(0, 40)
     assert lo == 0.0
     assert hi > 0.05  # cannot rule out exceeding delta on 40 trials
-    assert math.isclose(hi, 0.0881, abs_tol=5e-3)
+    assert hi == pytest.approx(1 - 0.025 ** (1 / 40), abs=1e-12)
+
+    # The mirror case, which is the only thing exercising the other guard.
+    lo_all, hi_all = clopper_pearson(40, 40)
+    assert hi_all == 1.0
+    assert lo_all == pytest.approx(0.025 ** (1 / 40), abs=1e-12)
+
+    # An interior case, where neither guard fires and both endpoints come from
+    # the beta quantiles. At k = n/2 the interval must be symmetric about 1/2.
+    lo_mid, hi_mid = clopper_pearson(20, 40)
+    assert 0.0 < lo_mid < 0.5 < hi_mid < 1.0
+    assert lo_mid == pytest.approx(1 - hi_mid, abs=1e-12)
 
 
 # --------------------------------------------------------------------------
