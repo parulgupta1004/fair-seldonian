@@ -12,8 +12,86 @@ it.
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
+import torch
 
+from fair_seldonian.constraints.inequalities import Inequality, eval_func_bound
 from fair_seldonian.data.synthetic import get_data
+
+
+# --------------------------------------------------------------------------
+# Confidence-interval coverage
+# --------------------------------------------------------------------------
+def _empirical_coverage(
+    n_total: int,
+    n_minority: int,
+    p_true: float,
+    inequality: Inequality,
+    trials: int = 300,
+    delta: float = 0.05,
+) -> float:
+    rng = np.random.default_rng(7)
+    T = pd.Series(np.array(["0"] * (n_total - n_minority) + ["1"] * n_minority))
+    hits = 0
+    for _ in range(trials):
+        Y = np.zeros(n_total, dtype=int)
+        Y[: n_total - n_minority] = rng.binomial(1, 0.5, n_total - n_minority)
+        minority = rng.binomial(1, p_true, n_minority)
+        Y[n_total - n_minority :] = minority
+        pred = np.zeros(n_total)
+        pred[n_total - n_minority :] = minority
+        pred[: n_total - n_minority] = rng.random(n_total - n_minority)
+        lo, hi = eval_func_bound(
+            "TP(1)",
+            pd.Series(Y),
+            torch.tensor(pred),
+            T,
+            delta,
+            inequality,
+            None,
+            False,
+            False,
+        )
+        hits += lo <= p_true <= hi
+    return hits / trials
+
+
+def test_interval_covers_on_a_small_minority_group() -> None:
+    """The distribution-free interval must cover a minority group's value.
+
+    This is the assertion the whole guarantee rests on. Building the interval from
+    ``#{Y == 1}`` across *all* groups while the estimate divides by the size of one
+    group makes it about 4.5x too narrow on a 500-member group inside 20,000
+    samples, and drops empirical coverage to roughly 0.5 against a nominal 0.95. A
+    balanced benchmark cannot detect it, because there the two counts coincide
+    numerically.
+    """
+    assert (
+        _empirical_coverage(20_000, 500, 0.3, Inequality.HOEFFDING_INEQUALITY) >= 0.95
+    )
+
+
+def test_interval_width_scales_with_group_size_not_dataset_size() -> None:
+    """Growing the majority around a fixed minority must not shrink its interval."""
+    widths = []
+    for n_total in (2_000, 20_000, 200_000):
+        n_minority = 200
+        T = pd.Series(np.array(["0"] * (n_total - n_minority) + ["1"] * n_minority))
+        Y = pd.Series(np.ones(n_total, dtype=int))
+        pred = torch.tensor(np.full(n_total, 0.5))
+        lo, hi = eval_func_bound(
+            "TP(1)",
+            Y,
+            pred,
+            T,
+            0.05,
+            Inequality.HOEFFDING_INEQUALITY,
+            None,
+            False,
+            False,
+        )
+        widths.append(hi - lo)
+    assert max(widths) - min(widths) < 1e-12
 
 
 # --------------------------------------------------------------------------

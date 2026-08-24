@@ -35,69 +35,84 @@ def group_mask(T: Array, group: str) -> Array:
     return mask
 
 
+def parse_base_token(element: str) -> tuple[str, str]:
+    """Split ``"TP(A)"`` into ``("TP", "A")``."""
+    head, _, rest = element.partition("(")
+    return head, rest[:-1]
+
+
+def contributions(
+    element: str, Y: Array, predicted_Y: torch.Tensor, T: Array
+) -> torch.Tensor:
+    r"""Per-sample contributions to the base variable ``element``, over its group.
+
+    ``TP(A)``, ``FP(A)``, ``TN(A)``, ``FN(A)`` are *fractions of group* ``A``: the
+    four cells sum to 1 within a group. So ``TP(A)`` estimates
+    :math:`P(\hat{Y}=1, Y=1 \mid T=A)` - a joint probability, **not** the
+    true-positive rate :math:`P(\hat{Y}=1 \mid Y=1, T=A)`. Conditional rates are
+    built from these cells by division; see
+    :mod:`fair_seldonian.constraints.fairness`.
+
+    Concretely, for ``TP(A)`` this returns the vector
+
+    .. math:: x_i = \mathbb{1}[Y_i = 1] \cdot \hat{p}_i, \quad i \in \{T = A\}
+
+    whose mean is the estimate and whose length is the sample size that any
+    concentration inequality must use. Returning the raw vector (rather than the
+    mean alone) is deliberate: the estimate, its sample size and its variance are
+    then guaranteed to refer to the same index set. Computing them separately
+    invites a mismatch that is hard to see and unsound: building the interval from
+    ``#{Y == 1}`` over *all* groups while the estimate divides by the size of one
+    group makes the interval anti-conservative whenever that group is small
+    relative to the dataset.
+
+    Conditioning on the group-assignment vector ``T``, these :math:`|A|` terms are
+    i.i.d. and lie in :math:`[0, 1]`, which is what Hoeffding requires.
+
+    :param element: base-variable token, e.g. ``"TP(A)"``.
+    :param Y: true labels.
+    :param predicted_Y: predicted probability of label 1, for the whole dataset.
+    :param T: sensitive attribute column.
+    :return: 1-D tensor of per-sample contributions, of length ``#{T == group}``.
+    """
+    measure, group = parse_base_token(element)
+    in_group = torch.tensor(group_mask(T, group))
+    probs = predicted_Y[in_group]
+    labels = torch.tensor(Y)[in_group]
+
+    if measure == "TP":  # predicted 1, actually 1
+        return probs * (labels == 1)
+    if measure == "FP":  # predicted 1, actually 0
+        return probs * (labels == 0)
+    if measure == "TN":  # predicted 0, actually 0
+        return (1 - probs) * (labels == 0)
+    if measure == "FN":  # predicted 0, actually 1
+        return (1 - probs) * (labels == 1)
+    raise ValueError(f"Unknown constraint variable: {element!r}")
+
+
 def eval_estimate(
     element: str, Y: Array, predicted_Y: torch.Tensor, T: Array
 ) -> torch.Tensor:
-    r"""
-    Estimates the value of the base variable.
-    Assumes that Y and predicted_y contain 0,1 binary classification.
-    Suppose we are calculating for FP(A).
-    Assume X to be an indicator function defined only in case type=A
-    s.t. x_i = 1 if FP occurred for ith datapoint and x_i = 0 otherwise.
-    Our data samples can be assumed to be independent and identically distributed.
-    Our estimate of p, \hat{p} = 1/n * \sum(x_i).
-    We can safely count this as binomial random variable.
-    E[\hat{p}] = 1/n * np = p.
-    As we do not know p, we approximate it to \hat{p}.
+    """Point estimate of the base variable ``element``.
 
-    :param element: expr_tree node
-    :param Y: pandas::Series
-    :param predicted_Y: tensor
-    :param T: pandas::Series
-    :return: estimate value: float
+    This is the mean of :func:`contributions`. See that function for what the
+    quantity means and why the two are tied together.
+
+    :param element: base-variable token, e.g. ``"TP(A)"``.
+    :param Y: true labels.
+    :param predicted_Y: predicted probability of label 1.
+    :param T: sensitive attribute column.
+    :return: scalar tensor.
     """
-    # element will be of the form FP(A) or FN(A) or TP(A) or TN(A)
-    type_attribute = element[3:-1]
-    # filter predict_Y to get values where T=type_attribute and then, Y=1/0
-    # average it all and return.
-    type_mask = group_mask(T, type_attribute)
-    Y_A = Y[type_mask]
-    num_of_A = len(Y_A)
-    if num_of_A == 0:
-        # No samples in this group: the rate is undefined. Return 0 rather than
+    x = contributions(element, Y, predicted_Y, T)
+    if x.numel() == 0:
+        # No samples in this group: the fraction is undefined. Return 0 rather than
         # dividing by zero (which would yield NaN and silently corrupt downstream
         # arithmetic). The confidence-bound path guards this case separately and
         # fails closed; see eval_func_bound.
         return torch.tensor(0.0)
-    if element.startswith("TP"):
-        # filter predict_Y where Y=1
-        # Predicted_y = 1 and Y=1
-        label_mask = Y == 1
-        mask = torch.mul(torch.tensor(type_mask), torch.tensor(label_mask))
-        probs = predicted_Y[mask]
-        return torch.div(torch.sum(probs), num_of_A)
-    elif element.startswith("TN"):
-        # filter predict_Y where Y=0
-        # Predicted_y = 0 and Y=0
-        label_mask = Y == 0
-        mask = torch.mul(torch.tensor(type_mask), torch.tensor(label_mask))
-        probs = predicted_Y[mask]
-        return torch.div(torch.sum(torch.sub(1, probs)), num_of_A)
-    elif element.startswith("FP"):
-        # filter predict_Y where Y=0
-        # Predicted_y = 1 and Y=0
-        label_mask = Y == 0
-        mask = torch.mul(torch.tensor(type_mask), torch.tensor(label_mask))
-        probs = predicted_Y[mask]
-        return torch.div(torch.sum(probs), num_of_A)
-    elif element.startswith("FN"):
-        # filter predict_Y where Y=1
-        # Predicted_y = 0 and Y=1
-        label_mask = Y == 1
-        mask = torch.mul(torch.tensor(type_mask), torch.tensor(label_mask))
-        probs = predicted_Y[mask]
-        return torch.div(torch.sum(torch.sub(1, probs)), num_of_A)
-    raise ValueError(f"Unknown constraint variable: {element!r}")
+    return x.mean()
 
 
 def eval_func_bound(
@@ -111,41 +126,39 @@ def eval_func_bound(
     predict_bound: bool,
     modified_h: bool,
 ) -> tuple[Bound, Bound]:
-    num_of_elements = get_num_of_elements(element, Y)
-    num_in_group = int(group_mask(T, element[3:-1]).sum())
-    # When the group is empty or there are too few label-matched samples to form
-    # an interval, the estimate and its confidence bound are undefined. Return the
-    # widest possible interval so the constraint's upper bound becomes +inf and the
-    # safety test fails closed, instead of dividing by zero (Hoeffding/variance) or
-    # silently propagating NaN through the bound and wrongly passing safety.
-    min_required = 2 if inequality == Inequality.T_TEST else 1
-    if num_in_group == 0 or num_of_elements < min_required:
+    """Confidence interval for a single base variable.
+
+    :param delta: failure probability budget allocated to this node.
+    """
+    x = contributions(element, Y, predicted_Y, T)
+    n = int(x.numel())
+    # When the group is empty, or too small to form an interval, the estimate and
+    # its confidence bound are undefined. Return the widest possible interval so the
+    # constraint's upper bound becomes +inf and the safety test fails closed, instead
+    # of dividing by zero or silently propagating NaN and wrongly passing safety.
+    min_required = 1 if inequality == Inequality.HOEFFDING_INEQUALITY else 2
+    if n < min_required:
         return -math.inf, math.inf
-    estimate = eval_estimate(element, Y, predicted_Y, T)
-    if inequality == Inequality.T_TEST:
-        variance = get_variance(element, estimate, predicted_Y, T, num_of_elements)
+
+    estimate = x.mean()
+
+    if inequality == Inequality.HOEFFDING_INEQUALITY:
         if predict_bound:
             # predict_bound is only set together with a candidate/safety split.
             assert candidate_safety_ratio is not None
-            return predict_t_test(
-                estimate, variance, candidate_safety_ratio * num_of_elements, delta
-            )
-        return eval_t_test(estimate, variance, num_of_elements, delta)
-    elif inequality == Inequality.HOEFFDING_INEQUALITY:
-        if predict_bound:
-            # predict_bound is only set together with a candidate/safety split.
-            assert candidate_safety_ratio is not None
+            safety_size = candidate_safety_ratio * n
             if modified_h:
-                return predict_hoeffding_modified(
-                    estimate,
-                    candidate_safety_ratio * num_of_elements,
-                    num_of_elements,
-                    delta,
-                )
-            return predict_hoeffding(
-                estimate, candidate_safety_ratio * num_of_elements, delta
-            )
-        return eval_hoeffding(estimate, num_of_elements, delta)
+                return predict_hoeffding_modified(estimate, safety_size, n, delta)
+            return predict_hoeffding(estimate, safety_size, delta)
+        return eval_hoeffding(estimate, n, delta)
+
+    if inequality == Inequality.T_TEST:
+        std = float(x.detach().std(unbiased=True))
+        if predict_bound:
+            assert candidate_safety_ratio is not None
+            return predict_t_test(estimate, std, candidate_safety_ratio * n, delta)
+        return eval_t_test(estimate, std, n, delta)
+
     raise ValueError(f"Unknown inequality: {inequality!r}")
 
 
@@ -153,28 +166,25 @@ def eval_func_bound(
 # Inequality class #
 ####################
 class Inequality(Enum):
-    """
-    The Enum defining the inequality type.
-    Currently, it supports T-test and Hoeffding.
+    """The concentration inequality used to build confidence intervals.
+
+    ``HOEFFDING_INEQUALITY`` is distribution-free and gives a genuine
+    high-confidence guarantee. ``T_TEST`` assumes approximate normality of the
+    sample mean, which makes the result *quasi*-Seldonian: the guarantee is only
+    as good as that approximation.
     """
 
     T_TEST = 1
     HOEFFDING_INEQUALITY = 2
 
 
-def get_num_of_elements(element: str, Y: Array) -> int:
-    if element.startswith("TP") or element.startswith("FN"):
-        # filter Y=1
-        return len(Y[Y == 1])
-    elif element.startswith("TN") or element.startswith("FP"):
-        # filter Y=0
-        return len(Y[Y == 0])
-    raise ValueError(f"Unknown constraint variable: {element!r}")
-
-
+#############
+# Hoeffding #
+#############
 def eval_hoeffding(
-    estimate: Bound, num_of_elements: int, delta: float
+    estimate: Bound, num_of_elements: float, delta: float
 ) -> tuple[Bound, Bound]:
+    """Hoeffding interval for a mean of ``num_of_elements`` i.i.d. terms in [0, 1]."""
     int_size = math.sqrt(math.log(1 / delta) / (2 * num_of_elements))
     return estimate - int_size, estimate + int_size
 
@@ -182,45 +192,52 @@ def eval_hoeffding(
 def predict_hoeffding(
     estimate: Bound, safety_size: float, delta: float
 ) -> tuple[Bound, Bound]:
-    constant_term = math.sqrt(math.log(1 / delta) / (2 * safety_size))
-    int_size = 2 * constant_term
+    """Candidate-selection *prediction* of the safety-test interval.
+
+    This is a heuristic, not a bound: it guesses whether the safety test will pass
+    so that candidate selection can avoid proposing solutions that would be
+    rejected. It carries no guarantee and needs none - the safety test supplies the
+    guarantee on its own.
+
+    Following Thomas et al. (2019), the safety-set interval is inflated by 2 to
+    stay conservative.
+    """
+    int_size = 2 * math.sqrt(math.log(1 / delta) / (2 * safety_size))
     return estimate - int_size, estimate + int_size
 
 
 def predict_hoeffding_modified(
     estimate: Bound, num_of_elements: float, safety_size: float, delta: float
 ) -> tuple[Bound, Bound]:
+    """Split the prediction into candidate error and safety-set width.
+
+    Replaces the blanket factor of 2 in :func:`predict_hoeffding` with the sum of a
+    term for the candidate-set estimation error and a term for the safety-set
+    interval. Like :func:`predict_hoeffding` this is a heuristic and affects only
+    which candidates are proposed.
+    """
     constant_term1 = math.sqrt(math.log(1 / delta) / (2 * num_of_elements))
     constant_term2 = math.sqrt(math.log(1 / delta) / (2 * safety_size))
     int_size = constant_term1 + constant_term2
     return estimate - int_size, estimate + int_size
 
 
-def get_variance(
-    element: str,
-    estimate: Bound,
-    predicted_Y: torch.Tensor,
-    T: Array,
-    num_of_elements: int,
-) -> float:
-    # element will be of the form FP(A) or FN(A) or TP(A) or TN(A)
-    type_attribute = element[3:-1]
-    type_Y = predicted_Y[torch.tensor(group_mask(T, type_attribute))]
-    sum_term = (type_Y - estimate) ** 2
-    return math.sqrt(float(sum_term.sum().detach()) / (num_of_elements - 1))
-
-
+##########
+# t-test #
+##########
 def eval_t_test(
-    estimate: Bound, variance: float, num_of_elements: int, delta: float
+    estimate: Bound, std: float, num_of_elements: float, delta: float
 ) -> tuple[Bound, Bound]:
+    """Student's t interval. ``std`` is the unbiased sample standard deviation."""
     t = float(stats.t.ppf(1 - delta, num_of_elements - 1))
-    int_size = (variance / math.sqrt(num_of_elements)) * t
+    int_size = (std / math.sqrt(num_of_elements)) * t
     return estimate - int_size, estimate + int_size
 
 
 def predict_t_test(
-    estimate: Bound, variance: float, safety_size: float, delta: float
+    estimate: Bound, std: float, safety_size: float, delta: float
 ) -> tuple[Bound, Bound]:
+    """Candidate-selection prediction of the t-test safety interval."""
     t = float(stats.t.ppf(1 - delta, safety_size - 1))
-    int_size = 2 * (variance / math.sqrt(safety_size)) * t
+    int_size = 2 * (std / math.sqrt(safety_size)) * t
     return estimate - int_size, estimate + int_size

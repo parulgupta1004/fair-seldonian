@@ -8,12 +8,11 @@ import torch
 
 from fair_seldonian.constraints.inequalities import (
     Inequality,
+    contributions,
     eval_estimate,
     eval_func_bound,
     eval_hoeffding,
     eval_t_test,
-    get_num_of_elements,
-    get_variance,
     group_mask,
     predict_hoeffding,
     predict_hoeffding_modified,
@@ -66,11 +65,14 @@ def test_estimate_range() -> None:
         assert 0 <= float(eval_estimate(func, Y, pred, T)) <= 1
 
 
-def test_variance_nonneg() -> None:
+def test_contributions_agree_with_estimate() -> None:
+    # The estimate, its sample size and its variance must all refer to the same
+    # index set. Deriving them from one vector is what makes that structural.
     Y, pred, T = _data()
-    est = eval_estimate("TP(1)", Y, pred, T)
-    n = get_num_of_elements("TP(1)", Y)
-    assert get_variance("TP(1)", est, pred, T, n) >= 0
+    x = contributions("TP(1)", Y, pred, T)
+    assert int(x.numel()) == int(group_mask(T, "1").sum())
+    assert abs(float(x.mean()) - float(eval_estimate("TP(1)", Y, pred, T))) < 1e-12
+    assert float(x.var(unbiased=True)) >= 0
 
 
 def test_estimate_unknown_variable_raises() -> None:
@@ -88,10 +90,10 @@ def test_func_bound_unknown_inequality_raises() -> None:
         )
 
 
-def test_num_of_elements_unknown_variable_raises() -> None:
-    Y, _, _ = _data()
+def test_contributions_unknown_variable_raises() -> None:
+    Y, pred, T = _data()
     with pytest.raises(ValueError):
-        get_num_of_elements("XX(1)", Y)
+        contributions("XX(1)", Y, pred, T)
 
 
 def test_estimate_empty_group_returns_zero_not_nan() -> None:
@@ -116,9 +118,11 @@ def test_func_bound_empty_group_fails_closed() -> None:
 
 
 def test_func_bound_single_sample_ttest_fails_closed() -> None:
-    # Only one positive label -> t-test cannot form an interval (df=0); fail closed.
+    # The sample size is the size of the *group*, since TP(1) is a fraction of
+    # group 1 and every group-1 row contributes (rows with Y=0 contribute zero).
+    # One group member means df=0, so the t-test cannot form an interval.
     Y = pd.Series([1, 0, 0, 0])
-    T = pd.Series([1, 1, 1, 1])
+    T = pd.Series([1, 0, 0, 0])
     pred = torch.tensor([0.9, 0.1, 0.2, 0.3], dtype=torch.float64)
     lo, hi = eval_func_bound(
         "TP(1)", Y, pred, T, 0.05, Inequality.T_TEST, None, False, False
@@ -151,3 +155,20 @@ def test_group_mask_thread_safe() -> None:
     for thread in threads:
         thread.join()
     assert not errors
+
+
+def test_sample_size_is_group_size_not_global_positive_count() -> None:
+    # A tiny group inside a large dataset: the interval must be built from the 2
+    # group members, not from the 6 positive labels across all groups. Using the
+    # global count made the interval sqrt(3)x too narrow here, and arbitrarily
+    # narrow as the dataset grew around a fixed-size minority group.
+    Y = pd.Series([1] * 6 + [0] * 6)
+    T = pd.Series([1, 1] + [0] * 10)
+    pred = torch.tensor([0.9] * 12, dtype=torch.float64)
+    _, hi = eval_func_bound(
+        "TP(1)", Y, pred, T, 0.05, Inequality.HOEFFDING_INEQUALITY, None, False, False
+    )
+    expected = float(eval_estimate("TP(1)", Y, pred, T)) + math.sqrt(
+        math.log(1 / 0.05) / (2 * 2)
+    )
+    assert abs(hi - expected) < 1e-12
