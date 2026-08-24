@@ -62,6 +62,12 @@ pygments_style = "sphinx"
 
 autodoc_member_order = "bysource"
 autodoc_typehints = "description"
+
+# SeldonianConfig's signature was a 227-character single line -- every default
+# value, including the whole postfix constraint string, run together. Past this
+# width Sphinx breaks a signature one parameter per line, which is the only way
+# a seven-argument dataclass reads as a list of options rather than a wall.
+python_maximum_signature_line_length = 72
 autodoc_default_options = {
     "members": True,
     "undoc-members": True,

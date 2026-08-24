@@ -5,6 +5,14 @@ from dataclasses import dataclass
 from .constraints.expression_tree import validate_constraint
 from .constraints.inequalities import Inequality
 
+#: The names this module contributes to the public API. autodoc documents
+#: exactly these, so the API reference stays the surface users are meant to
+#: call rather than every helper that happens to lack a leading underscore.
+__all__ = [
+    "DEFAULT_CONFIG",
+    "SeldonianConfig",
+]
+
 
 @dataclass(frozen=True)
 class SeldonianConfig:
@@ -77,4 +85,9 @@ class SeldonianConfig:
         validate_constraint(self.constraint)
 
 
+#: The configuration every entry point falls back to when none is passed --
+#: :func:`~fair_seldonian.algorithms.qsa.QSA`, :func:`~fair_seldonian.models.ghat`
+#: and the rest all default to it. Being a frozen dataclass it is safe to share;
+#: build a variant with ``dataclasses.replace`` or by constructing a new
+#: :class:`SeldonianConfig`.
 DEFAULT_CONFIG = SeldonianConfig()

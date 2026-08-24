@@ -7,6 +7,15 @@ import os
 import numpy as np
 from scipy import stats
 
+#: The names this module contributes to the public API. autodoc documents
+#: exactly these, so the API reference stays the surface users are meant to
+#: call rather than every helper that happens to lack a leading underscore.
+__all__ = [
+    "clopper_pearson",
+    "save_summary",
+    "summarise",
+]
+
 logger = logging.getLogger(__name__)
 
 

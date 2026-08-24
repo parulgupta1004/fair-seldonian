@@ -14,6 +14,15 @@ from ..constraints.expression_tree import construct_expr_tree_base, eval_expr_tr
 from ..data.synthetic import get_data
 from ..models.logistic_regression import f_hat, predict, simple_logistic
 
+#: The names this module contributes to the public API. autodoc documents
+#: exactly these, so the API reference stays the surface users are meant to
+#: call rather than every helper that happens to lack a leading underscore.
+__all__ = [
+    "StudySpec",
+    "run_study",
+    "true_g",
+]
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_OUTPUT_DIR = "exp/exp_{}/bin/"

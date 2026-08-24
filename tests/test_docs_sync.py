@@ -200,6 +200,72 @@ def test_vendored_layout_still_matches_the_theme() -> None:
     )
 
 
+def _leaf_modules() -> list[str]:
+    """Importable, non-private modules that are not package ``__init__`` files."""
+    import pkgutil
+
+    import fair_seldonian
+
+    out = []
+    for mod in pkgutil.walk_packages(
+        [str(Path(fair_seldonian.__file__).parent)], prefix="fair_seldonian."
+    ):
+        if any(part.startswith("_") for part in mod.name.split(".")) or mod.ispkg:
+            continue
+        out.append(mod.name)
+    return sorted(out)
+
+
+@pytest.mark.parametrize("modname", _leaf_modules())
+def test_module_all_is_well_formed(modname: str) -> None:
+    """``__all__`` decides what the API reference shows, so it must be honest."""
+    import importlib
+
+    mod = importlib.import_module(modname)
+    names = getattr(mod, "__all__", None)
+    assert names is not None, (
+        f"{modname} has no __all__, so autodoc documents every public-looking "
+        "name in it, including internal helpers."
+    )
+    for n in names:
+        assert not n.startswith("_"), f"{modname}.__all__ lists a private name: {n}"
+        assert hasattr(mod, n), f"{modname}.__all__ names {n!r}, which does not exist"
+
+
+def test_every_exported_name_is_in_some_module_all() -> None:
+    """A name re-exported from a package must be documented somewhere.
+
+    ``__all__`` is what autodoc renders. Exporting a name from an ``__init__``
+    while leaving it out of its module's ``__all__`` puts it in the public API
+    and nowhere in the API reference -- invisible, but supported.
+    """
+    import importlib
+    import inspect
+
+    import fair_seldonian
+
+    exported = {
+        n: getattr(fair_seldonian, n)
+        for n in dir(fair_seldonian)
+        if not n.startswith("_")
+    }
+    for sub in ("algorithms", "config", "constraints", "data", "experiments", "models"):
+        m = importlib.import_module(f"fair_seldonian.{sub}")
+        exported.update({n: getattr(m, n) for n in dir(m) if not n.startswith("_")})
+
+    missing = []
+    for name, obj in sorted(exported.items()):
+        home = getattr(obj, "__module__", None)
+        if not home or not home.startswith("fair_seldonian") or inspect.ismodule(obj):
+            continue
+        names = getattr(importlib.import_module(home), "__all__", ())
+        if name not in names:
+            missing.append(f"{name} (exported, but not in {home}.__all__)")
+    assert not missing, "public names absent from the API reference:\n  " + "\n  ".join(
+        missing
+    )
+
+
 #: ``:math:`...``` and ``.. math::`` blocks, which KaTeX must be able to render.
 _INLINE_MATH = re.compile(r":math:`([^`]+)`")
 _BLOCK_MATH = re.compile(r"^\.\. math::\s*\n((?:\s*\n|[ \t]+.*\n)+)", re.M)

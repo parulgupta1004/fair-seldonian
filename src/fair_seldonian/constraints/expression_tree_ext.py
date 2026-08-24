@@ -26,6 +26,18 @@ if TYPE_CHECKING:
     from .._typing import Array, Bound
     from .inequalities import Inequality
 
+#: The names this module contributes to the public API. autodoc documents
+#: exactly these, so the API reference stays the surface users are meant to
+#: call rather than every helper that happens to lack a leading underscore.
+__all__ = [
+    "ExprTree",
+    "change_deltas",
+    "construct_expr_tree",
+    "eval_expr_tree",
+    "eval_expr_tree_conf_interval",
+    "inorder_ext",
+]
+
 logger = logging.getLogger(__name__)
 
 

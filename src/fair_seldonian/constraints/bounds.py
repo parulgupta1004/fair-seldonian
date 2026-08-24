@@ -6,6 +6,15 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .._typing import Bound
 
+#: The names this module contributes to the public API. autodoc documents
+#: exactly these, so the API reference stays the surface users are meant to
+#: call rather than every helper that happens to lack a leading underscore.
+__all__ = [
+    "eval_div_bound",
+    "eval_math_bound",
+    "eval_multiply_bound",
+]
+
 
 def eval_math_bound(
     l_x: Bound | None,

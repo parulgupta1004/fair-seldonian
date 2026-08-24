@@ -14,6 +14,20 @@ from scipy import stats
 if TYPE_CHECKING:
     from .._typing import Array, Bound
 
+#: The names this module contributes to the public API. autodoc documents
+#: exactly these, so the API reference stays the surface users are meant to
+#: call rather than every helper that happens to lack a leading underscore.
+__all__ = [
+    "Inequality",
+    "betting_interval",
+    "check_constraint_groups",
+    "conditioning_set",
+    "contributions",
+    "eval_estimate",
+    "eval_func_bound",
+    "predict_hoeffding",
+]
+
 # `T.astype(str) == group` dominates the confidence-bound hot path: the optimizer
 # evaluates the constraint thousands of times while T never changes. Memoize the
 # group mask per (T, group). Keyed by object identity and guarded with `is`, so a

@@ -3,6 +3,13 @@ from __future__ import annotations
 import os
 from typing import Any
 
+#: The names this module contributes to the public API. autodoc documents
+#: exactly these, so the API reference stays the surface users are meant to
+#: call rather than every helper that happens to lack a leading underscore.
+__all__ = [
+    "plot_all",
+]
+
 #: Panel filenames, kept as-is so existing figure references keep resolving.
 LOSS_PANEL = "tutorial7MSE_py.png"
 VIOLATION_PANEL = "tutorial7PrFail1_py.png"
