@@ -1,0 +1,1 @@
+**`f_hat` did not compute log loss.** It passed probabilities to `CrossEntropyLoss`, which expects logits, yielding `-log softmax([1-p, p])_y` — floored at 0.3133 for a perfect classifier and compressed roughly tenfold in range, so any axis labelled "log loss" was mislabelled. Now uses `binary_cross_entropy`. by @parulgupta1004

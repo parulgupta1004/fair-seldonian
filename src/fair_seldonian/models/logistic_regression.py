@@ -48,11 +48,23 @@ def predict(
     )
 
 
+# Keeps log(p) finite when the sigmoid saturates to exactly 0 or 1 in float64.
+_EPS = 1e-12
+
+
 def f_hat(
     theta: torch.Tensor | None, theta1: torch.Tensor | None, X: np.ndarray, Y: Array
 ) -> torch.Tensor:
     """
-    Main objective function: negative log loss.
+    Main objective function: negative log loss (higher is better).
+
+    Note that ``torch.nn.CrossEntropyLoss`` is the wrong tool here. It expects raw
+    *logits* and applies ``log_softmax`` internally, so stacking the predicted
+    probabilities into a two-column tensor and passing them to it computes
+    ``-log softmax([1-p, p])_y`` - a different function, with a floor of 0.3133 for
+    a perfect classifier and a ceiling near 1.31. That both mislabels any axis
+    called "log loss" and compresses the range roughly tenfold, which destroys the
+    resolution of small between-method differences.
 
     :param theta: The optimal theta values for the model
     :param theta1: The additional optimal theta values for the model
@@ -60,10 +72,9 @@ def f_hat(
     :param Y: The true labels of the dataset
     :return: The negative log loss
     """
-    pred = predict(theta, theta1, X)
-    predicted_Y = torch.stack([torch.sub(1, pred), pred], dim=1)
-    loss = torch.nn.CrossEntropyLoss()
-    return -loss(predicted_Y, torch.tensor(Y).long())
+    pred = predict(theta, theta1, X).clamp(_EPS, 1 - _EPS)
+    target = torch.tensor(np.asarray(Y), dtype=pred.dtype)
+    return -torch.nn.functional.binary_cross_entropy(pred, target)
 
 
 def simple_logistic(X: np.ndarray, Y: Array) -> tuple[torch.Tensor, torch.Tensor]:

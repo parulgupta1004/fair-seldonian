@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+from sklearn.metrics import log_loss
 
 from fair_seldonian.constraints.inequalities import (
     Inequality,
@@ -22,6 +23,7 @@ from fair_seldonian.constraints.inequalities import (
     eval_func_bound,
 )
 from fair_seldonian.data.synthetic import get_data
+from fair_seldonian.models.logistic_regression import f_hat
 
 
 # --------------------------------------------------------------------------
@@ -108,6 +110,41 @@ def test_group_dtype_mismatch_raises_instead_of_failing_silently() -> None:
     check_constraint_groups(["0", "1"], pd.Series([0, 1, 0, 1]))
     with pytest.raises(ValueError, match="upcast|appear in no row"):
         check_constraint_groups(["0", "1"], np.array([0.0, 1.0, 0.0]))
+
+
+# --------------------------------------------------------------------------
+# Objective
+# --------------------------------------------------------------------------
+def test_f_hat_is_log_loss() -> None:
+    """``f_hat`` must be the negative log loss, not softmax-of-probabilities.
+
+    Passing probabilities to ``CrossEntropyLoss`` (which expects logits) yields a
+    quantity floored at 0.3133 for a perfect classifier, so any curve plotted from
+    it asymptotes to 0.31 rather than towards the Bayes rate, and the range is
+    compressed roughly tenfold.
+    """
+    Y = np.array([0, 1, 1, 0, 1, 0, 1, 1])
+    for probabilities in (
+        np.array([0.01, 0.99, 0.99, 0.01, 0.99, 0.01, 0.99, 0.99]),
+        np.array([0.2, 0.8, 0.7, 0.3, 0.9, 0.1, 0.85, 0.75]),
+        np.full(8, 0.5),
+    ):
+        # A single feature with unit weight and no intercept makes predict() the
+        # identity on the supplied probabilities' logits.
+        logits = np.log(probabilities / (1 - probabilities)).reshape(-1, 1)
+        theta = torch.tensor(np.array([1.0]))
+        theta1 = torch.tensor(np.array([0.0]))
+        got = -float(f_hat(theta, theta1, logits, Y))
+        assert abs(got - log_loss(Y, probabilities)) < 1e-9
+
+
+def test_perfect_classifier_approaches_zero_loss() -> None:
+    Y = np.array([0, 1, 1, 0])
+    logits = np.where(Y == 1, 30.0, -30.0).reshape(-1, 1)
+    loss = -float(
+        f_hat(torch.tensor(np.array([1.0])), torch.tensor(np.array([0.0])), logits, Y)
+    )
+    assert loss < 1e-6
 
 
 # --------------------------------------------------------------------------
