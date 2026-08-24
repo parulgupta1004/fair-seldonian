@@ -23,6 +23,7 @@ from .fairness import equalized_odds as equalized_odds
 from .fairness import error_rate as error_rate
 from .fairness import error_rate_parity as error_rate_parity
 from .inequalities import Inequality as Inequality
+from .inequalities import check_constraint_groups as check_constraint_groups
 from .inequalities import contributions as contributions
 from .inequalities import eval_estimate as eval_estimate
 from .inequalities import eval_func_bound as eval_func_bound

@@ -13,9 +13,14 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 import torch
 
-from fair_seldonian.constraints.inequalities import Inequality, eval_func_bound
+from fair_seldonian.constraints.inequalities import (
+    Inequality,
+    check_constraint_groups,
+    eval_func_bound,
+)
 from fair_seldonian.data.synthetic import get_data
 
 
@@ -92,6 +97,17 @@ def test_interval_width_scales_with_group_size_not_dataset_size() -> None:
         )
         widths.append(hi - lo)
     assert max(widths) - min(widths) < 1e-12
+
+
+def test_group_dtype_mismatch_raises_instead_of_failing_silently() -> None:
+    """Float group labels make every mask empty and every bound +inf.
+
+    That looks exactly like a legitimate "no solution found", so the run would
+    report a clean negative result rather than a type error.
+    """
+    check_constraint_groups(["0", "1"], pd.Series([0, 1, 0, 1]))
+    with pytest.raises(ValueError, match="upcast|appear in no row"):
+        check_constraint_groups(["0", "1"], np.array([0.0, 1.0, 0.0]))
 
 
 # --------------------------------------------------------------------------

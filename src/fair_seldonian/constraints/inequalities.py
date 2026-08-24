@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import logging
 import math
 import threading
 from enum import Enum
 from typing import TYPE_CHECKING
 
+import numpy as np
 import torch
 from scipy import stats
 
@@ -19,6 +21,29 @@ if TYPE_CHECKING:
 _GROUP_MASK_CACHE: dict[tuple[int, str], tuple[Array, Array]] = {}
 _GROUP_MASK_CACHE_MAX = 32
 _GROUP_MASK_CACHE_LOCK = threading.Lock()  # to ensure it works on free-threading Python
+
+logger = logging.getLogger(__name__)
+
+
+def check_constraint_groups(groups: list[str], T: Array) -> None:
+    """Raise if a group named in the constraint matches no row of ``T``.
+
+    Group labels are compared as strings, so an integer column and a float column
+    behave differently: ``str(1) == "1"`` but ``str(1.0) == "1.0"``. Passing ``T``
+    through anything that upcasts to float - ``DataFrame.values`` on a frame with
+    any float column, for instance - therefore makes every mask empty. The bound
+    then fails closed to ``+inf``, the safety test rejects everything, and the run
+    looks like a legitimate "no solution found" rather than a type error. Call this
+    once up front so the mistake is loud.
+    """
+    present = {str(v) for v in np.unique(np.asarray(T))}
+    missing = sorted(set(groups) - present)
+    if missing:
+        raise ValueError(
+            f"constraint refers to group(s) {missing} that appear in no row of T; "
+            f"T contains {sorted(present)[:10]}. Group labels are matched as "
+            "strings, so check that T has not been upcast (e.g. int 1 -> float 1.0)."
+        )
 
 
 def group_mask(T: Array, group: str) -> Array:
@@ -145,6 +170,14 @@ def eval_func_bound(
     # of dividing by zero or silently propagating NaN and wrongly passing safety.
     min_required = 1 if inequality == Inequality.HOEFFDING_INEQUALITY else 2
     if n < min_required:
+        if n == 0:
+            logger.warning(
+                "group %r of %r matched no rows; the bound will be +inf and the "
+                "safety test will reject. If this is unexpected, check the dtype "
+                "of T (see check_constraint_groups).",
+                parse_base_token(element)[1],
+                element,
+            )
         return -math.inf, math.inf
 
     estimate = x.mean()
