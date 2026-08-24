@@ -1,5 +1,6 @@
 from .bounds import eval_math_bound as eval_math_bound
 from .expression_tree import ExprTree as ExprTree
+from .expression_tree import constraint_groups as constraint_groups
 from .expression_tree import construct_expr_tree_base as construct_expr_tree_base
 from .expression_tree import eval_expr_tree_base as eval_expr_tree_base
 from .expression_tree import (

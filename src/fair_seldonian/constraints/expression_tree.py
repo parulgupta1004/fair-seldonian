@@ -184,6 +184,23 @@ def validate_constraint(rev_polish_notation: str) -> None:
         )
 
 
+def constraint_groups(rev_polish_notation: str) -> list[str]:
+    """The distinct sensitive-attribute values a constraint refers to.
+
+    ``"TP(1) TP(0) - abs 0.1 -"`` yields ``["0", "1"]``. Pair this with
+    :func:`~fair_seldonian.constraints.inequalities.check_constraint_groups` to
+    confirm up front that every group the constraint names is actually present in
+    ``T``.
+    """
+    return sorted(
+        {
+            token.partition("(")[2][:-1]
+            for token in rev_polish_notation.split()
+            if is_func(token)
+        }
+    )
+
+
 _NodeT = TypeVar("_NodeT", bound=ExprTree)
 
 

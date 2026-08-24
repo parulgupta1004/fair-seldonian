@@ -8,6 +8,8 @@ import torch
 from scipy.optimize import minimize
 
 from ..config import DEFAULT_CONFIG, SeldonianConfig
+from ..constraints.expression_tree import constraint_groups
+from ..constraints.inequalities import check_constraint_groups
 from ..models.logistic_regression import eval_ghat, f_hat, ghat, simple_logistic
 
 logger = logging.getLogger(__name__)
@@ -110,6 +112,11 @@ def QSA(
     :param config: Algorithm configuration
     :return: :class:`QSAResult`
     """
+    # Fail loudly on a group the constraint names but T does not contain. Without
+    # this the masks come back empty, the bound fails closed to +inf and the run
+    # reports an ordinary "no solution found" instead of the type error it is.
+    check_constraint_groups(constraint_groups(config.constraint), T)
+
     cand_X, safe_X, cand_Y, safe_Y, cand_T, safe_T = split_candidate_safety(
         X, Y, T, config.candidate_ratio
     )

@@ -3,6 +3,7 @@ import pytest
 
 from fair_seldonian.algorithms.qsa import QSA, safety_test, split_candidate_safety
 from fair_seldonian.config import DEFAULT_CONFIG, SeldonianConfig
+from fair_seldonian.constraints.expression_tree import constraint_groups
 from fair_seldonian.constraints.inequalities import Inequality
 from fair_seldonian.data.synthetic import data_split, get_data
 from fair_seldonian.models.logistic_regression import simple_logistic
@@ -79,3 +80,22 @@ def test_safety_test_agrees_with_the_verdict_qsa_reports(mode: str) -> None:
     direct = safety_test(result.theta, result.theta1, safe_X, safe_Y, safe_T, mode)
     assert direct == result.passed_safety
     assert (result.diagnostics.failure_mode == "solution_found") == result.passed_safety
+
+
+def test_qsa_rejects_a_group_the_data_does_not_contain() -> None:
+    """An upcast ``T`` used to look like an ordinary "no solution found".
+
+    Group labels are matched as strings, so a float column makes every mask empty
+    and the bound fails closed to ``+inf``. That is a type error, not a fairness
+    result, and it should not be reported as one.
+    """
+    Xt, Yt, Tt, _, _, _ = _split(n=400)
+    with pytest.raises(ValueError, match="appear in no row of T"):
+        QSA(Xt, Yt, np.asarray(Tt, dtype=float), "base", None, None)
+
+
+def test_constraint_groups_reads_every_group_the_constraint_names() -> None:
+    assert constraint_groups("TP(1) TP(0) - abs 0.1 -") == ["0", "1"]
+    assert constraint_groups("TPR(F) TPR(M) - abs 0.05 -") == ["F", "M"]
+    # Constants and operators contribute no groups, and repeats collapse.
+    assert constraint_groups("PR(1) PR(1) - abs 0.2 -") == ["1"]
