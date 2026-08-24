@@ -97,29 +97,9 @@ Get started
 
 .. toctree::
    :hidden:
-   :caption: Get started
+   :maxdepth: 2
 
-   intro
-   quickstart
-
-.. toctree::
-   :hidden:
-   :caption: Concepts
-
-   theory
-   fairness_constraints
-   inequalities
-   variants
-
-.. toctree::
-   :hidden:
-   :caption: Examples
-
+   getting-started
+   concepts
    examples/index
-
-.. toctree::
-   :hidden:
-   :caption: Reference
-
-   api/fair_seldonian
-   references
+   API reference <api/fair_seldonian>

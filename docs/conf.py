@@ -87,6 +87,65 @@ intersphinx_mapping = {
     "pandas": ("https://pandas.pydata.org/docs/", None),
 }
 
+# Fail fast rather than hanging on a slow mirror. Note that under ``-W`` an
+# unreachable inventory still fails the build; Sphinx logs that warning with no
+# subtype, so ``suppress_warnings`` cannot single it out.
+intersphinx_timeout = 15
+
+
+# -- Name the sidebar after the section ---------------------------------------
+
+
+def _section_of_page(env, root_doc: str) -> dict[str, str]:
+    """Map every document to the title of the top-level section containing it.
+
+    The theme labels the left sidebar "Section Navigation" on every page, which
+    says nothing: the reader already knows they are looking at navigation. The
+    useful label is which section they are in, and the toctree already knows.
+
+    An explicit toctree caption wins over the target page's own heading, so
+    ``API reference <api/fair_seldonian>`` labels the sidebar "API reference"
+    rather than "fair_seldonian package" -- matching what the navbar shows.
+    """
+    from sphinx import addnodes
+
+    explicit: dict[str, str] = {}
+    for node in env.get_doctree(root_doc).findall(addnodes.toctree):
+        for title, docname in node["entries"]:
+            if title:
+                explicit[docname] = title
+
+    labels: dict[str, str] = {}
+    includes = env.toctree_includes
+    for top in includes.get(root_doc, []):
+        title = env.titles.get(top)
+        label = explicit.get(top) or (title.astext() if title is not None else top)
+        stack, seen = [top], set()
+        while stack:
+            doc = stack.pop()
+            if doc in seen:
+                continue
+            seen.add(doc)
+            labels[doc] = label
+            stack.extend(includes.get(doc, []))
+    return labels
+
+
+def _set_section_title(app, pagename, templatename, context, doctree):
+    # Reading the root doctree touches the filesystem, so resolve the whole map
+    # once per build rather than once per page.
+    labels = getattr(app.builder, "_fs_section_labels", None)
+    if labels is None:
+        labels = _section_of_page(app.builder.env, app.config.root_doc)
+        app.builder._fs_section_labels = labels
+    context["fs_section_title"] = labels.get(pagename)
+
+
+def setup(app):
+    app.connect("html-page-context", _set_section_title)
+    return {"parallel_read_safe": True, "parallel_write_safe": True}
+
+
 # -- HTML output configuration ----------------------------------------------
 
 html_theme = "pydata_sphinx_theme"
@@ -107,9 +166,40 @@ html_theme_options = {
     "show_prev_next": True,
     "show_toc_level": 2,
     "use_edit_page_button": True,
+    # Expand the current section's pages rather than leaving them collapsed
+    # behind a caret; there are only four or five per section.
+    "show_nav_level": 2,
+    "navigation_depth": 3,
+    # Breadcrumbs matter more than usual here because the top navbar shows the
+    # section, not the page, so a deep-linked reader has no other cue to where
+    # they are.
+    "article_header_start": ["breadcrumbs"],
     "footer_start": ["copyright"],
     "footer_end": ["sphinx-version"],
 }
+
+# Left sidebar. The default is ``sidebar-collapse`` + ``sidebar-nav-bs``, which
+# on a page with no child pages renders an empty "Section Navigation" heading --
+# which is what every concept page did before they were grouped under
+# ``concepts``. There is deliberately no search box here: the navbar already
+# carries one at the top right, and two search affordances on the same page is
+# one too many. ``indices`` is added because the rebuilt landing page no longer
+# carries the genindex/modindex links it used to.
+html_sidebars = {
+    "**": [
+        "sidebar-nav-bs",
+        "indices",
+    ],
+    # The landing page carries its own card navigation.
+    "index": [],
+}
+
+# Right sidebar: the page outline, plus the two links that act on the page.
+html_theme_options["secondary_sidebar_items"] = [
+    "page-toc",
+    "edit-this-page",
+    "sourcelink",
+]
 html_context = {
     "github_user": "parulgupta1004",
     "github_repo": "fair-seldonian",
