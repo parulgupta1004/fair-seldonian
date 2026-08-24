@@ -1,0 +1,1 @@
+Added a "Concentration Inequalities" page covering `HOEFFDING_INEQUALITY`, `EMPIRICAL_BERNSTEIN`, `BETTING` and `T_TEST` — formulas, when each is tighter, and why only `T_TEST` fails to give a genuine guarantee. None were previously described anywhere in the prose docs. by @parulgupta1004

@@ -145,6 +145,13 @@ uv run python examples/quickstart.py
 uv run python scripts/run_paper_experiments.py --out exp/paper --only opt
 ```
 
+Orthogonally, `SeldonianConfig(inequality=...)` selects how each interval is
+built. `HOEFFDING_INEQUALITY` (the default), `EMPIRICAL_BERNSTEIN` and `BETTING`
+are distribution-free and give a genuine guarantee; `T_TEST` assumes approximate
+normality, which is what makes the result *quasi*-Seldonian. See the
+[Concentration inequalities](https://parulgupta1004.github.io/fair-seldonian/inequalities.html)
+docs for how to choose.
+
 ## Citation
 
 ```bibtex

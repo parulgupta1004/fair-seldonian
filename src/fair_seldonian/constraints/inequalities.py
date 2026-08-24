@@ -292,8 +292,8 @@ class Inequality(Enum):
     ``BETTING`` is the Waudby-Smith and Ramdas betting interval, which is also
     distribution-free and dominates the other two for bounded variables: it adapts
     to the observed variance like empirical Bernstein but without paying the
-    additive penalty term. It costs a grid search over candidate means, so it is
-    the slowest of the four.
+    additive penalty term. Locating each endpoint takes repeated passes over the
+    data, so it is the slowest of the four.
     """
 
     T_TEST = 1
