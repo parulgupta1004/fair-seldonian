@@ -1,0 +1,1 @@
+Removed `get_num_of_elements` and `get_variance` from `constraints.inequalities`; each computed over a different row set than the estimate it was paired with. Use `contributions(element, Y, predicted_Y, T)`, now exported from `fair_seldonian.constraints`, whose `.numel()` and `.std(unbiased=True)` give the old values. by @parulgupta1004

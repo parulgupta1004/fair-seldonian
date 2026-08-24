@@ -1,0 +1,1 @@
+**Two-sided intervals spent a one-sided delta budget.** Symmetric `estimate ± w` intervals were built from `ln(1/delta)` rather than `ln(2/delta)` (and `t.ppf(1 - delta)` rather than `t.ppf(1 - delta/2)`), so real coverage was `1 - 2*delta` — a 90% interval sold as 95%. The interval functions now take a `two_sided` flag, defaulting to `True`. by @parulgupta1004

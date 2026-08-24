@@ -1,0 +1,1 @@
+Added `constraints.check_constraint_groups`, which raises when a constraint names a group matching no row of `T`. Labels are matched as strings, so an upcast `T` (`str(1.0) == "1.0"`) empties every mask, the bound fails closed to `+inf`, and the run reports a clean "no solution found" instead of a type error. by @parulgupta1004
