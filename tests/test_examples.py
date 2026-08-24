@@ -17,6 +17,7 @@ import math
 import re
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -262,21 +263,47 @@ def test_notebook_outputs_are_current(notebook: Path) -> None:
 #: directive does not exist -- so the only way to keep its code honest is to run
 #: it. The blocks are executed in one shared namespace because later ones build
 #: on earlier ones.
-MARKDOWN_WITH_CODE = ["README.md", "docs/fairness_constraints.md"]
+DOCS_WITH_CODE = [
+    "README.md",
+    "docs/index.rst",
+    "docs/fairness_constraints.rst",
+]
 
 _PY_BLOCK = re.compile(r"```python\n(.*?)```", re.S)
+#: ``.. code-block:: python`` followed by an indented body. Options such as
+#: ``:linenos:`` are skipped; the body is everything indented past the directive
+#: until the first line that is neither blank nor indented.
+_RST_BLOCK = re.compile(
+    r"^([ \t]*)\.\. code-block:: python\n"  # the directive
+    r"(?:\1[ \t]+:\S+:.*\n)*"  # any options
+    r"\n"  # the blank line before the body
+    r"((?:\1[ \t]+.*\n|[ \t]*\n)*)",  # the indented body
+    re.M,
+)
 
 
-@pytest.mark.parametrize("relative", MARKDOWN_WITH_CODE)
-def test_markdown_python_blocks_execute(relative: str) -> None:
+def _python_blocks(path: Path) -> list[str]:
+    """Runnable python blocks, in document order, for markdown or reST."""
+    text = path.read_text()
+    if path.suffix == ".md":
+        return _PY_BLOCK.findall(text)
+    return [textwrap.dedent(body).strip("\n") for _, body in _RST_BLOCK.findall(text)]
+
+
+@pytest.mark.parametrize("relative", DOCS_WITH_CODE)
+def test_documentation_python_blocks_execute(relative: str) -> None:
     """Documentation code must run against the current API.
 
     This is the check that would have caught the README and quickstart snippets
     unpacking ``QSA`` into three values after it began returning ``QSAResult``:
     a break nothing executed, so nothing noticed.
+
+    reST pages are covered as well as markdown. ``literalinclude`` single-sources
+    a snippet from ``examples/``, but a snippet written inline in a ``.rst`` page
+    -- the landing page's opening example, for one -- is executed by nothing else.
     """
     path = Path(__file__).resolve().parent.parent / relative
-    blocks = _PY_BLOCK.findall(path.read_text())
+    blocks = _python_blocks(path)
     assert blocks, f"no python blocks found in {relative} - has the format changed?"
 
     namespace: dict = {}

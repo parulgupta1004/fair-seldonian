@@ -8,16 +8,23 @@ fairness definition straight into the algorithm without hand-writing the string:
 
     config = SeldonianConfig(constraint=demographic_parity(epsilon=0.1))
 
-The constraints are written over the per-group confusion-matrix cells that this
-library exposes as primitives - ``TP(g)``, ``FP(g)``, ``FN(g)``, ``TN(g)``. Each
-is a *fraction of group* ``g`` (the four cells sum to 1 within a group), so:
+The constraints are written over the base variables this library exposes as
+primitives, of which there are three kinds:
 
-* predicted-positive rate  ``P(Y-hat = 1 | A = g)`` is ``TP(g) + FP(g)``;
-* true-positive rate (recall)  ``P(Y-hat = 1 | Y = 1, A = g)`` is
-  ``TP(g) / (TP(g) + FN(g))``;
-* false-positive rate  ``P(Y-hat = 1 | Y = 0, A = g)`` is
-  ``FP(g) / (FP(g) + TN(g))``;
-* error (misclassification) rate  ``P(Y-hat != Y | A = g)`` is ``FP(g) + FN(g)``.
+* **cells** ``TP(g)``, ``FP(g)``, ``FN(g)``, ``TN(g)`` - each a *fraction of
+  group* ``g``, the four summing to 1 within a group;
+* **label-conditioned rates** ``TPR(g)``, ``FPR(g)``, ``TNR(g)``, ``FNR(g)`` -
+  ``TPR(g)`` is ``P(Y-hat = 1 | Y = 1, A = g)``, a mean over only that group's
+  positive rows;
+* **predicted rates** ``PR(g)``, ``NR(g)`` - ``PR(g)`` is
+  ``P(Y-hat = 1 | A = g)``, equal to ``TP(g) + FP(g)``.
+
+The builders use whichever primitive expresses the definition in the fewest
+leaves and without division. Demographic parity is written over ``PR(g)`` rather
+than ``TP(g) + FP(g)`` (two leaves instead of four), and equal opportunity over
+``TPR(g)`` rather than ``TP(g) / (TP(g) + FN(g))``. The identities hold either
+way, but every leaf spends its own slice of ``delta``, and division would put the
+constraint outside the affine fragment.
 
 Every constraint encodes ``g(theta) <= 0`` and is bounded by a tolerance
 ``epsilon`` (smaller is stricter). Most bound a between-group *gap* and take a
@@ -27,11 +34,12 @@ defaults ``("1", "0")`` line up with a 0/1 sensitive column.
 
 .. note::
 
-   ``equal_opportunity`` and ``equalized_odds`` divide by per-group base rates to
-   form conditional rates. Confidence bounds on a ratio are looser than on a
-   difference, so these need more data (or a tighter ``inequality`` such as
-   ``Inequality.T_TEST``) to certify than the division-free constraints
-   (``demographic_parity``, ``error_rate``, ``error_rate_parity``).
+   ``equal_opportunity`` and ``equalized_odds`` still need more data to certify
+   than the others, but not because of division - none of the builders divide.
+   Their leaves are *label-conditioned*, so each averages over a subset of its
+   group (only the positives, or only the negatives) and carries a smaller sample
+   size, which widens the interval. ``equalized_odds`` additionally spends four
+   slices of ``delta`` rather than two.
 """
 
 from __future__ import annotations

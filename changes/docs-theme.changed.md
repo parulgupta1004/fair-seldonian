@@ -1,0 +1,1 @@
+The documentation now uses the PyData Sphinx theme with `sphinx-design` and `sphinx-copybutton`: a top navigation bar, a light/dark toggle, an on-this-page sidebar, and a landing page built from cards rather than a bare table of contents. by @parulgupta1004

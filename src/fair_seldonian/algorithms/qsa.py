@@ -12,6 +12,18 @@ from ..constraints.expression_tree import constraint_groups
 from ..constraints.inequalities import check_constraint_groups
 from ..models.logistic_regression import eval_ghat, f_hat, ghat, simple_logistic
 
+#: The names this module contributes to the public API. autodoc documents
+#: exactly these, so the API reference stays the surface users are meant to
+#: call rather than every helper that happens to lack a leading underscore.
+__all__ = [
+    "Diagnostics",
+    "QSA",
+    "QSAResult",
+    "get_cand_solution",
+    "safety_test",
+    "split_candidate_safety",
+]
+
 logger = logging.getLogger(__name__)
 
 

@@ -1,0 +1,29 @@
+{#
+  Label the left sidebar with the section the reader is in.
+
+  The theme's own component hardcodes "Section Navigation" on every page, which
+  tells the reader nothing they cannot already see. ``fs_section_title`` is set
+  per page in conf.py from the root toctree, so this reads "Concepts",
+  "Get started", "Examples" or "API reference" instead. Falls back to the theme's
+  wording for pages outside the toctree (search, genindex, py-modindex).
+
+  Otherwise identical to the theme's components/sidebar-nav-bs.html; the guard in
+  tests/test_docs_sync.py fails if that file's toctree call changes.
+#}
+{% set show_nav_level = meta['html_theme.show_nav_level'] if (meta is defined and meta is not none and 'html_theme.show_nav_level' in meta) else theme_show_nav_level %}
+{% set nav_title = fs_section_title if fs_section_title else _("Section Navigation") %}
+<nav class="bd-docs-nav bd-links"
+     aria-label="{{ nav_title }}">
+  <p class="bd-links__title" role="heading" aria-level="1">{{ nav_title }}</p>
+  <div class="bd-toc-item navbar-nav">
+    {{- generate_toctree_html(
+      "sidebar",
+      show_nav_level=show_nav_level | int,
+      maxdepth=theme_navigation_depth | int,
+      collapse=theme_collapse_navigation | tobool,
+      includehidden=theme_sidebar_includehidden | tobool,
+      titles_only=True
+      )
+    -}}
+  </div>
+</nav>

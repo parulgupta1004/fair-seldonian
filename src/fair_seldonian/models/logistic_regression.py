@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -20,6 +21,17 @@ from ..constraints.expression_tree_ext import (
 
 if TYPE_CHECKING:
     from .._typing import Array, Bound
+
+#: The names this module contributes to the public API. autodoc documents
+#: exactly these, so the API reference stays the surface users are meant to
+#: call rather than every helper that happens to lack a leading underscore.
+__all__ = [
+    "eval_ghat",
+    "f_hat",
+    "ghat",
+    "predict",
+    "simple_logistic",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +111,77 @@ def simple_logistic(X: np.ndarray, Y: Array) -> tuple[torch.Tensor, torch.Tensor
         raise
 
 
+@dataclass(frozen=True)
+class SeldonianType:
+    """How one ``seldonian_type`` composes its per-leaf intervals into a bound.
+
+    ``summary`` is rendered directly into the documentation, so a new variant is
+    described in exactly one place. ``family`` selects the implementation and the
+    remaining fields are the flags it takes.
+    """
+
+    summary: str
+    family: str  # "base" | "extend" | "affine"
+    modified_h: bool = False
+    check_bound: bool = False
+    check_const: bool = False
+
+
+#: Every accepted ``seldonian_type``, in the order they build on one another. This
+#: is the single source of truth: :func:`eval_ghat` and :func:`ghat` dispatch on it,
+#: the error message for an unknown type enumerates it, and the documentation's
+#: variant table is generated from it. Adding a variant means adding one entry.
+SELDONIAN_TYPES: dict[str, SeldonianType] = {
+    "base": SeldonianType(
+        "Uniform delta/2 splitting at every operator, with the standard Hoeffding "
+        "bound predicting the safety test.",
+        family="base",
+    ),
+    "mod": SeldonianType(
+        "Decomposes candidate and safety estimation error instead of doubling the "
+        "safety term, which is tighter whenever the two splits differ in size.",
+        family="base",
+        modified_h=True,
+    ),
+    "const": SeldonianType(
+        "Passes the full delta to the variable subtree when the sibling is a "
+        "constant, since an exact value needs no interval.",
+        family="extend",
+        check_const=True,
+    ),
+    "bound": SeldonianType(
+        "Merges the delta slices of repeated leaves into a single interval by the "
+        "union bound, so a variable used three times is not paid for three times.",
+        family="extend",
+        check_bound=True,
+    ),
+    "opt": SeldonianType(
+        "Combines mod, const and bound.",
+        family="extend",
+        modified_h=True,
+        check_bound=True,
+        check_const=True,
+    ),
+    "affine": SeldonianType(
+        "Compiles the constraint to a max of affine forms and bounds each with one "
+        "interval, exploiting independence across groups. Roughly halves the slack, "
+        "but only for constraints built from +, -, scaling and abs.",
+        family="affine",
+    ),
+}
+
+
+def resolve_seldonian_type(seldonian_type: str) -> SeldonianType:
+    """Look up a variant, naming the alternatives when it is not recognised."""
+    try:
+        return SELDONIAN_TYPES[seldonian_type]
+    except KeyError:
+        raise ValueError(
+            f"Unknown seldonian_type: {seldonian_type!r}; "
+            f"expected one of {', '.join(SELDONIAN_TYPES)}"
+        ) from None
+
+
 def eval_ghat(
     theta: torch.Tensor,
     theta1: torch.Tensor,
@@ -108,20 +191,25 @@ def eval_ghat(
     seldonian_type: str,
     config: SeldonianConfig = DEFAULT_CONFIG,
 ) -> Bound:
-    if seldonian_type == "base":
-        bound = eval_ghat_base(theta, theta1, X, Y, T, False, config)
-    elif seldonian_type == "mod":
-        bound = eval_ghat_base(theta, theta1, X, Y, T, True, config)
-    elif seldonian_type == "bound":
-        bound = eval_ghat_extend(theta, theta1, X, Y, T, True, False, False, config)
-    elif seldonian_type == "const":
-        bound = eval_ghat_extend(theta, theta1, X, Y, T, False, True, False, config)
-    elif seldonian_type == "opt":
-        bound = eval_ghat_extend(theta, theta1, X, Y, T, True, True, True, config)
-    elif seldonian_type == "affine":
-        bound = ghat_affine(theta, theta1, X, Y, T, None, config)
+    spec = resolve_seldonian_type(seldonian_type)
+    if spec.family == "base":
+        bound = eval_ghat_base(
+            theta, theta1, X, Y, T, modified_h=spec.modified_h, config=config
+        )
+    elif spec.family == "extend":
+        bound = eval_ghat_extend(
+            theta,
+            theta1,
+            X,
+            Y,
+            T,
+            check_bound=spec.check_bound,
+            check_const=spec.check_const,
+            modified_h=spec.modified_h,
+            config=config,
+        )
     else:
-        raise ValueError(f"Unknown seldonian_type: {seldonian_type}")
+        bound = ghat_affine(theta, theta1, X, Y, T, None, config)
     # A bound is a number, not a node in an autograd graph. simple_logistic
     # returns parameters with requires_grad set and predict propagates that, so
     # without this every `float(eval_ghat(...))` warns about converting a tensor
@@ -140,26 +228,34 @@ def ghat(
     seldonian_type: str,
     config: SeldonianConfig = DEFAULT_CONFIG,
 ) -> Bound:
-    if seldonian_type == "base":
-        return ghat_base(theta, theta1, X, Y, T, True, candidate_ratio, False, config)
-    elif seldonian_type == "mod":
-        return ghat_base(theta, theta1, X, Y, T, True, candidate_ratio, True, config)
-    elif seldonian_type == "bound":
-        return ghat_extend(
-            theta, theta1, X, Y, T, True, candidate_ratio, True, False, False, config
+    spec = resolve_seldonian_type(seldonian_type)
+    if spec.family == "base":
+        return ghat_base(
+            theta,
+            theta1,
+            X,
+            Y,
+            T,
+            predict_bound=True,
+            candidate_ratio=candidate_ratio,
+            modified_h=spec.modified_h,
+            config=config,
         )
-    elif seldonian_type == "const":
+    if spec.family == "extend":
         return ghat_extend(
-            theta, theta1, X, Y, T, True, candidate_ratio, False, True, False, config
+            theta,
+            theta1,
+            X,
+            Y,
+            T,
+            predict_bound=True,
+            candidate_ratio=candidate_ratio,
+            check_bound=spec.check_bound,
+            check_const=spec.check_const,
+            modified_h=spec.modified_h,
+            config=config,
         )
-    elif seldonian_type == "opt":
-        return ghat_extend(
-            theta, theta1, X, Y, T, True, candidate_ratio, True, True, True, config
-        )
-    elif seldonian_type == "affine":
-        return ghat_affine(theta, theta1, X, Y, T, candidate_ratio, config)
-    else:
-        raise ValueError(f"Unknown seldonian_type: {seldonian_type}")
+    return ghat_affine(theta, theta1, X, Y, T, candidate_ratio, config)
 
 
 def ghat_base(

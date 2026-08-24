@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, os.path.abspath("../src"))
+sys.path.insert(0, os.path.abspath("_ext"))
 
 import fair_seldonian
 
@@ -38,9 +39,12 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
-    "sphinx.ext.mathjax",
+    "sphinxcontrib.katex",
     "sphinx.ext.githubpages",
     "myst_nb",
+    "sphinx_design",
+    "sphinx_copybutton",
+    "fair_seldonian_docs",
 ]
 
 templates_path = ["_templates"]
@@ -58,11 +62,34 @@ pygments_style = "sphinx"
 
 autodoc_member_order = "bysource"
 autodoc_typehints = "description"
+
+# SeldonianConfig's signature was a 227-character single line -- every default
+# value, including the whole postfix constraint string, run together. Past this
+# width Sphinx breaks a signature one parameter per line, which is the only way
+# a seven-argument dataclass reads as a list of options rather than a wall.
+python_maximum_signature_line_length = 72
 autodoc_default_options = {
     "members": True,
     "undoc-members": True,
     "show-inheritance": True,
 }
+
+# -- Math rendering ----------------------------------------------------------
+
+# MathJax shipped 974 kB of JavaScript (274 kB gzipped) to every page carrying an
+# equation, and typeset them in the browser -- the single largest asset after the
+# theme's icon bundle, and a visible reflow while it ran. KaTeX renders the same
+# markup here at build time, so a reader downloads only the stylesheet and the
+# fonts it actually uses, and the math is already laid out in the HTML.
+#
+# The trade is that KaTeX covers a narrower slice of LaTeX than MathJax, and
+# sphinxcontrib-katex pre-renders with ``throwOnError`` off -- so an expression
+# it cannot parse is baked into the page as red error text and the build still
+# succeeds. ``test_every_equation_renders_under_katex`` renders them all with
+# errors on, which is what actually catches it.
+#
+# Pre-rendering shells out to node; without one the build fails outright.
+katex_prerender = True
 
 # -- Napoleon configuration -------------------------------------------------
 
@@ -83,16 +110,133 @@ intersphinx_mapping = {
     "pandas": ("https://pandas.pydata.org/docs/", None),
 }
 
+# Fail fast rather than hanging on a slow mirror. Note that under ``-W`` an
+# unreachable inventory still fails the build; Sphinx logs that warning with no
+# subtype, so ``suppress_warnings`` cannot single it out.
+intersphinx_timeout = 15
+
+
+# -- Name the sidebar after the section ---------------------------------------
+
+
+def _section_of_page(env, root_doc: str) -> dict[str, str]:
+    """Map every document to the title of the top-level section containing it.
+
+    The theme labels the left sidebar "Section Navigation" on every page, which
+    says nothing: the reader already knows they are looking at navigation. The
+    useful label is which section they are in, and the toctree already knows.
+
+    An explicit toctree caption wins over the target page's own heading, so
+    ``API reference <api/fair_seldonian>`` labels the sidebar "API reference"
+    rather than "fair_seldonian package" -- matching what the navbar shows.
+    """
+    from sphinx import addnodes
+
+    explicit: dict[str, str] = {}
+    for node in env.get_doctree(root_doc).findall(addnodes.toctree):
+        for title, docname in node["entries"]:
+            if title:
+                explicit[docname] = title
+
+    labels: dict[str, str] = {}
+    includes = env.toctree_includes
+    for top in includes.get(root_doc, []):
+        title = env.titles.get(top)
+        label = explicit.get(top) or (title.astext() if title is not None else top)
+        stack, seen = [top], set()
+        while stack:
+            doc = stack.pop()
+            if doc in seen:
+                continue
+            seen.add(doc)
+            labels[doc] = label
+            stack.extend(includes.get(doc, []))
+    return labels
+
+
+def _set_section_title(app, pagename, templatename, context, doctree):
+    # Reading the root doctree touches the filesystem, so resolve the whole map
+    # once per build rather than once per page.
+    labels = getattr(app.builder, "_fs_section_labels", None)
+    if labels is None:
+        labels = _section_of_page(app.builder.env, app.config.root_doc)
+        app.builder._fs_section_labels = labels
+    context["fs_section_title"] = labels.get(pagename)
+
+
+def setup(app):
+    app.connect("html-page-context", _set_section_title)
+    return {"parallel_read_safe": True, "parallel_write_safe": True}
+
+
 # -- HTML output configuration ----------------------------------------------
 
-html_theme = "sphinx_rtd_theme"
+html_theme = "pydata_sphinx_theme"
+_repo = "https://github.com/parulgupta1004/fair-seldonian"
 html_theme_options = {
+    "navbar_start": ["navbar-logo"],
+    "navbar_center": ["navbar-nav"],
+    "navbar_end": ["theme-switcher", "navbar-icon-links"],
+    "navbar_align": "left",
+    "icon_links": [
+        {"name": "GitHub", "url": _repo, "icon": "fa-brands fa-github"},
+        {
+            "name": "PyPI",
+            "url": "https://pypi.org/project/fair-seldonian/",
+            "icon": "fa-brands fa-python",
+        },
+    ],
+    "show_prev_next": True,
+    "show_toc_level": 2,
+    "use_edit_page_button": True,
+    # Results appear as you type, in a modal, instead of requiring Enter and a
+    # full page load of search.html. The index is already in memory by then --
+    # see _templates/layout.html -- so the work per keystroke is a lookup.
+    "search_as_you_type": True,
+    # Expand the current section's pages rather than leaving them collapsed
+    # behind a caret; there are only four or five per section.
+    "show_nav_level": 2,
     "navigation_depth": 3,
-    "collapse_navigation": False,
-    "sticky_navigation": True,
-    "prev_next_buttons_location": "both",
+    # Breadcrumbs matter more than usual here because the top navbar shows the
+    # section, not the page, so a deep-linked reader has no other cue to where
+    # they are.
+    "article_header_start": ["breadcrumbs"],
+    "footer_start": ["copyright"],
+    "footer_end": ["sphinx-version"],
+}
+
+# Left sidebar. The default is ``sidebar-collapse`` + ``sidebar-nav-bs``, which
+# on a page with no child pages renders an empty "Section Navigation" heading --
+# which is what every concept page did before they were grouped under
+# ``concepts``. There is deliberately no search box here: the navbar already
+# carries one at the top right, and two search affordances on the same page is
+# one too many. ``indices`` is added because the rebuilt landing page no longer
+# carries the genindex/modindex links it used to.
+html_sidebars = {
+    "**": [
+        "sidebar-nav-bs",
+        "indices",
+    ],
+    # The landing page carries its own card navigation.
+    "index": [],
+}
+
+# Right sidebar: the page outline, plus the two links that act on the page.
+html_theme_options["secondary_sidebar_items"] = [
+    "page-toc",
+    "edit-this-page",
+    "sourcelink",
+]
+html_context = {
+    "github_user": "parulgupta1004",
+    "github_repo": "fair-seldonian",
+    "github_version": "master",
+    "doc_path": "docs",
+    # Respect the reader's OS setting rather than forcing one mode.
+    "default_mode": "auto",
 }
 html_static_path = ["_static"]
+html_css_files = ["custom.css"]
 html_show_sourcelink = True
 html_show_copyright = True
 

@@ -13,25 +13,14 @@ and is **orthogonal** to the ``seldonian_type`` variant:
 
    config = SeldonianConfig(inequality=Inequality.EMPIRICAL_BERNSTEIN)
 
-.. list-table::
-   :header-rows: 1
-   :widths: 26 20 54
+.. fs-inequality-table::
 
-   * - Inequality
-     - Assumption
-     - When to prefer it
-   * - ``HOEFFDING_INEQUALITY``
-     - Bounded in [0, 1]
-     - The safe default. Worst-case, so it ignores the data's variance.
-   * - ``EMPIRICAL_BERNSTEIN``
-     - Bounded in [0, 1]
-     - A group's rate is far from 1/2 — the usual case for a minority group.
-   * - ``BETTING``
-     - Bounded in [0, 1]
-     - Tightest of the three sound options; costs the most compute.
-   * - ``T_TEST``
-     - Sample mean ≈ normal
-     - Comparison against the literature. **Not** a genuine guarantee.
+The final column is not a quoted figure: it is computed at build time by running
+each implementation on one fixed Bernoulli sample, so the ordering shown is the
+ordering the library actually delivers. At a base rate of 0.1 the three
+distribution-free options rank betting < empirical Bernstein < Hoeffding, which
+is the ranking the sections below explain. Student's t is narrower still, but see
+the warning against relying on it.
 
 The first three are distribution-free: they assume only that each contribution
 lies in :math:`[0, 1]`, which the base variables satisfy by construction. Their

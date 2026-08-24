@@ -22,12 +22,26 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - run: pip install -e ".[dev]"
-      - run: pip install sphinx sphinx-rtd-theme myst-nb matplotlib
+      # KaTeX pre-renders the math during the build, which shells out to node.
+      # The runner image ships one, but declare it: without node the build dies
+      # with a bare FileNotFoundError that says nothing about why.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # The docs extra is the single source for these; do not re-list them here.
+      - run: pip install -e ".[dev,docs]"
+      # Some docs guards need the theme installed, which the test matrix does not
+      # have, so they skip there. Run them where the docs are actually built.
+      - run: pytest tests/test_docs_sync.py -q --no-cov
       # -W turns warnings into errors. Without it an example notebook that is
       # never added to the toctree still builds -- as an orphan page nothing
       # links to -- and the build stays green.
       - run: sphinx-build -W -b html docs docs/_build/html
+      # Reports unreachable links without failing the build: an external site
+      # being down is not a reason to block a docs deploy.
+      - name: Check external links (non-blocking)
+        continue-on-error: true
+        run: sphinx-build -b linkcheck docs docs/_build/linkcheck
       - uses: actions/upload-pages-artifact@v5
         with:
           path: docs/_build/html

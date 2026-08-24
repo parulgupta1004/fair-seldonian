@@ -1,0 +1,1 @@
+`seldonian_type` dispatch reads a single `SELDONIAN_TYPES` registry instead of two parallel `if`/`elif` chains, so adding a variant means adding one entry. Unknown values now name the accepted alternatives. Bounds are unchanged for all six variants. by @parulgupta1004

@@ -1,0 +1,1 @@
+Documentation dependencies moved to a `docs` extra, so `pip install -e ".[docs]"` and `uv run --extra docs` install the same set. CI previously repeated the list in a `pip install` line. by @parulgupta1004

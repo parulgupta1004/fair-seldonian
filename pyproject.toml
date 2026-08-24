@@ -68,6 +68,19 @@ notebook-test = [
     "ipykernel>=6.29",
     "matplotlib",
 ]
+# Declared as an extra rather than a uv dependency-group so that `pip install
+# -e ".[docs]"` and `uv run --extra docs` install the same set. CI previously
+# repeated the list in a `pip install` line, which is exactly the kind of
+# duplication that drifts.
+docs = [
+    "sphinx>=7.0",
+    "pydata-sphinx-theme>=0.16",
+    "sphinx-design>=0.6",
+    "sphinx-copybutton>=0.5",
+    "sphinxcontrib-katex>=0.9",
+    "myst-nb>=1.1",
+    "matplotlib",
+]
 
 [project.urls]
 Homepage = "https://github.com/parulgupta1004/fair-seldonian"
@@ -94,12 +107,6 @@ packages = ["src/fair_seldonian"]
 dev = [
     "pyrefly>=1.0.0",
     "pytest>=8.0",
-]
-docs = [
-    "sphinx>=7.0",
-    "sphinx-rtd-theme>=2.0",
-    "myst-nb>=1.1",
-    "matplotlib",
 ]
 notebook = [
     "jupyterlab>=4.0",

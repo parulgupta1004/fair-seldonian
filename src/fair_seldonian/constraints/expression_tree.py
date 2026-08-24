@@ -12,6 +12,23 @@ if TYPE_CHECKING:
 
     from .._typing import Array, Bound
 
+#: The names this module contributes to the public API. autodoc documents
+#: exactly these, so the API reference stays the surface users are meant to
+#: call rather than every helper that happens to lack a leading underscore.
+__all__ = [
+    "ExprTree",
+    "child_sides",
+    "constraint_groups",
+    "construct_expr_tree_base",
+    "eval_expr_tree_base",
+    "eval_expr_tree_conf_interval_base",
+    "inorder",
+    "is_func",
+    "is_mod",
+    "is_operator",
+    "validate_constraint",
+]
+
 logger = logging.getLogger(__name__)
 
 

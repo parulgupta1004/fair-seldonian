@@ -6,6 +6,14 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
+#: The names this module contributes to the public API. autodoc documents
+#: exactly these, so the API reference stays the surface users are meant to
+#: call rather than every helper that happens to lack a leading underscore.
+__all__ = [
+    "data_split",
+    "get_data",
+]
+
 #: Standard deviation of the Gaussian noise added to the label to form the signal
 #: feature. The Bayes error of the resulting problem is ``Phi(-1 / (2 * sigma))``,
 #: so the default of 0.5 gives about 16%: unconstrained logistic regression reaches

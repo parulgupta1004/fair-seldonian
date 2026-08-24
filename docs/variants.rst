@@ -1,36 +1,16 @@
 Algorithm Variants
 ==================
 
-The framework implements several optimizations to the base Seldonian algorithm
-[Thomas2019]_ that tighten confidence bounds, leading to improved solution rates
-and objective performance. Each variant can be selected via the
+The framework implements several optimizations to the base Quasi-Seldonian
+Algorithm (QSA) [Thomas2019]_ that tighten confidence bounds, leading to improved
+solution rates and objective performance. Each variant can be selected via the
 ``seldonian_type`` argument.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 12 35 53
+This axis is independent of the :doc:`confidence inequality <inequalities>`: the
+inequality sets how wide a single interval is, the variant sets how the intervals
+are combined. Every pairing is accepted.
 
-   * - Mode
-     - Name
-     - Key Idea
-   * - ``base``
-     - Baseline QSA
-     - Uniform :math:`\delta/2` splitting, standard Hoeffding bound
-   * - ``mod``
-     - Modified Confidence Interval
-     - Decomposes candidate and safety estimation error
-   * - ``const``
-     - Constant-Aware Allocation
-     - Skips delta splitting for constant nodes
-   * - ``bound``
-     - Union Bound Optimization
-     - Combines delta for repeated leaf nodes
-   * - ``opt``
-     - All Optimizations
-     - Combines ``mod``, ``const``, and ``bound``
-   * - ``affine``
-     - Affine-Form Compilation
-     - One interval per affine form, exploiting independence across groups
+.. fs-variant-table::
 
 .. _variant-base:
 
@@ -218,11 +198,24 @@ rather than from the data. Since a Hoeffding half-width scales as
 :math:`1/\sqrt{n}`, halving it is worth roughly 4x the data.
 
 **Limits.** Anything outside that fragment raises
-:class:`~fair_seldonian.constraints.affine.NotAffine`. Division is the common
-case: :func:`~fair_seldonian.constraints.fairness.equal_opportunity` compares
-true-positive *rates*, which divide by a per-group base rate, so it falls back to
-interval arithmetic. Writing the constraint over the ``TPR(g)`` primitive instead
-of an explicit ratio keeps it inside the fragment.
+:class:`~fair_seldonian.constraints.affine.NotAffine`. Division is the usual
+cause, so the practical rule is to reach for a rate *primitive* rather than
+writing the ratio out. ``TPR(1) TPR(0) - abs 0.1 -`` compiles; the equivalent
+``TP(1) TP(1) FN(1) + / ...`` does not, because a quotient of two variables
+cannot be rewritten as a max of affine forms.
+
+Every builder shipped in :mod:`fair_seldonian.constraints.fairness` is written
+this way and therefore compiles — see the *Affine forms* column of the generated
+table in :doc:`fairness_constraints`, which is produced by running the compiler
+over each one.
+
+.. note::
+
+   Every inequality works with ``affine``: the per-form interval is built by the
+   same code as any other leaf interval, just applied to the weighted sum. Do not
+   assume the per-leaf ranking carries over, though — the widths depend on the
+   range of the weighted variable, not of a single cell, so the tightest
+   inequality for a leaf is not always the tightest for a form.
 
 .. code-block:: bash
 

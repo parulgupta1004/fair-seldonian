@@ -1,0 +1,159 @@
+/* Fair-Seldonian documentation theme overrides.
+ *
+ * Kept deliberately small: the PyData theme is already close to what we want, so
+ * this only sets the brand colours, tightens the generated tables, and fixes the
+ * one thing dark mode genuinely breaks (saved notebook figures).
+ */
+
+/* -- Type scale ------------------------------------------------------------ */
+
+/* The theme's defaults are set for a marketing-sized page: 16px body under a
+ * 42px h1, stepping down only to 24px by h4. On a reference page that is mostly
+ * h2/h3 sections the headings crowd out the prose they label.
+ *
+ * These are the theme's own variables, redefined on the same selector it uses;
+ * custom.css loads after the theme stylesheet, so these win. Note the base size
+ * compounds: html's own font-size is set from --pst-font-size-base, so 1rem
+ * becomes 15px for everything below it and the heading rem values scale with it. */
+html {
+  --pst-font-size-base: 0.9375rem; /* 16px -> 15px body text */
+  --pst-font-size-h1: 2rem; /* 42px -> 30px */
+  --pst-font-size-h2: 1.5rem; /* 34px -> 22px */
+  --pst-font-size-h3: 1.25rem; /* 28px -> 19px */
+  --pst-font-size-h4: 1.1rem; /* 24px -> 17px */
+  /* Only h1-h3 appear in these docs today, but keep the tail of the scale at or
+   * above body size: a heading smaller than the text it introduces reads as a
+   * mistake, and headings are already distinguished by weight. */
+  --pst-font-size-h5: 1.05rem; /* 20px -> 16px */
+  --pst-font-size-h6: 1rem; /* 16px -> 15px */
+}
+
+/* API signatures are monospace at the full body size, which reads a size larger
+ * than the prose around them -- and since long signatures now wrap one parameter
+ * per line, a seven-argument class became a seven-line block. */
+dt.sig,
+dt.sig-object {
+  font-size: 0.875em;
+}
+
+/* The dotted module path prefix on every signature is noise once you know which
+ * page you are on; keep it legible but let the name itself lead. */
+.sig-prename.descclassname {
+  font-size: 0.95em;
+  color: var(--pst-color-text-muted);
+}
+
+/* -- Brand ---------------------------------------------------------------- */
+
+html[data-theme="light"] {
+  --pst-color-primary: #1a5f7a;
+  --pst-color-secondary: #b8621b;
+  --pst-color-accent: #0f8b8d;
+  --pst-color-inline-code: #b8621b;
+}
+
+html[data-theme="dark"] {
+  --pst-color-primary: #6bb8d6;
+  --pst-color-secondary: #e89b5a;
+  --pst-color-accent: #4ecdc4;
+  --pst-color-inline-code: #e89b5a;
+}
+
+/* -- Saved notebook figures ----------------------------------------------- */
+
+/* The example notebooks ship with matplotlib PNGs drawn on a white canvas with
+ * near-black text. On a dark page the text becomes black-on-dark and disappears.
+ * Regenerating a second set of figures per theme is not worth the maintenance,
+ * so give the images their own light backing instead. */
+html[data-theme="dark"] .cell_output img,
+html[data-theme="dark"] figure img[src*="_images"] {
+  background-color: #ffffff;
+  border-radius: 4px;
+  padding: 0.4rem;
+}
+
+/* -- Generated tables ----------------------------------------------------- */
+
+/* The constraint and inequality tables carry postfix strings and formulas that
+ * must not be broken across lines mid-token. */
+table.fs-generated td code,
+table.fs-generated td .docutils.literal {
+  white-space: nowrap;
+}
+
+table.fs-generated {
+  font-size: 0.9em;
+}
+
+table.fs-generated th {
+  background-color: var(--pst-color-surface);
+}
+
+/* Yes/no capability cells in the comparison matrix. */
+.fs-yes {
+  color: var(--pst-color-success);
+  font-weight: 600;
+}
+
+.fs-no {
+  color: var(--pst-color-danger);
+}
+
+.fs-partial {
+  color: var(--pst-color-warning);
+}
+
+/* -- Search ---------------------------------------------------------------- */
+
+/* One search affordance per page, in the navbar at the top right (the sidebar
+ * deliberately has none -- see html_sidebars in conf.py). The theme's default
+ * button is a wide pill sized to fit the words "Search" plus a "Ctrl+K" hint;
+ * shrink it to something closer to an icon button and let the hint go first
+ * when space is tight. */
+.navbar-persistent--container .search-button-field {
+  min-width: 0;
+  max-width: 11rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.82rem;
+  border-radius: 1rem;
+}
+
+.navbar-persistent--container .search-button-field .search-button__default-text {
+  margin-inline: 0.35rem;
+}
+
+/* Below a wide desktop the keyboard hint is the first thing worth dropping: it
+ * is the least useful part of the control and the widest. */
+@media (max-width: 1200px) {
+  .navbar-persistent--container .search-button-field .search-button__kbd-shortcut {
+    display: none;
+  }
+}
+
+/* Narrower still, keep only the magnifying glass. */
+@media (max-width: 992px) {
+  .navbar-persistent--container .search-button-field .search-button__default-text {
+    display: none;
+  }
+  .navbar-persistent--container .search-button-field {
+    padding: 0.25rem 0.45rem;
+  }
+}
+
+/* -- Landing page --------------------------------------------------------- */
+
+.fs-hero {
+  padding: 1.5rem 0 0.5rem;
+}
+
+.fs-hero .fs-tagline {
+  font-size: 1.25rem;
+  color: var(--pst-color-text-muted);
+  margin-bottom: 1.5rem;
+}
+
+/* Cards on the landing page should feel clickable. */
+.sd-card:hover {
+  border-color: var(--pst-color-primary);
+  transition: border-color 0.15s ease-in-out;
+}

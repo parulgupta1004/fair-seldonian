@@ -54,6 +54,17 @@ from .inequalities import (
 if TYPE_CHECKING:
     from .._typing import Array, Bound
 
+#: The names this module contributes to the public API. autodoc documents
+#: exactly these, so the API reference stays the surface users are meant to
+#: call rather than every helper that happens to lack a leading underscore.
+__all__ = [
+    "AffineForm",
+    "NotAffine",
+    "affine_upper_bound",
+    "compile_bounds",
+    "form_upper_bound",
+]
+
 
 class AffineForm:
     """``constant + sum_v coefficient[v] * v`` over base-variable tokens."""
