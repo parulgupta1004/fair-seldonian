@@ -16,7 +16,7 @@ returns a model it cannot certify.
    :gutter: 3
    :class-container: sd-mb-4
 
-   .. grid-item-card:: Never an unsafe model
+   .. grid-item-card:: :octicon:`shield-check;1.1em;sd-mr-2` Never an unsafe model
       :link: theory
       :link-type: doc
 
@@ -24,21 +24,21 @@ returns a model it cannot certify.
       guarantee is a genuine high-confidence bound rather than a training-set
       measurement.
 
-   .. grid-item-card:: Five fairness definitions
+   .. grid-item-card:: :octicon:`law;1.1em;sd-mr-2` Five fairness definitions
       :link: fairness_constraints
       :link-type: doc
 
       Demographic parity, equal opportunity, equalized odds, error rate and
       error-rate parity — ready to use, or write your own in the constraint DSL.
 
-   .. grid-item-card:: Tighter bounds
+   .. grid-item-card:: :octicon:`meter;1.1em;sd-mr-2` Tighter bounds
       :link: variants
       :link-type: doc
 
       Affine-form compilation roughly halves the slack over interval arithmetic,
       worth about 4x the data at a fixed confidence level.
 
-   .. grid-item-card:: Choose your inequality
+   .. grid-item-card:: :octicon:`sliders;1.1em;sd-mr-2` Choose your inequality
       :link: inequalities
       :link-type: doc
 
