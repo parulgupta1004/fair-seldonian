@@ -1,7 +1,8 @@
 import numpy as np
+import pytest
 
-from fair_seldonian.algorithms.qsa import QSA, safety_test
-from fair_seldonian.config import SeldonianConfig
+from fair_seldonian.algorithms.qsa import QSA, safety_test, split_candidate_safety
+from fair_seldonian.config import DEFAULT_CONFIG, SeldonianConfig
 from fair_seldonian.constraints.inequalities import Inequality
 from fair_seldonian.data.synthetic import data_split, get_data
 from fair_seldonian.models.logistic_regression import simple_logistic
@@ -60,3 +61,21 @@ def test_safety_test_custom_config() -> None:
     Xt, Yt, Tt, _, _, _ = _split(n=500)
     theta, theta1 = simple_logistic(Xt, Yt)
     assert isinstance(safety_test(theta, theta1, Xt, Yt, Tt, "base", config), bool)
+
+
+@pytest.mark.parametrize("mode", ["base", "opt", "affine"])
+def test_safety_test_agrees_with_the_verdict_qsa_reports(mode: str) -> None:
+    """``safety_test`` and ``QSA`` must apply the same pass criterion.
+
+    ``QSA`` does not call ``safety_test``; it evaluates the bound itself. So the
+    rule lived in two places and could drift, leaving a model that
+    ``safety_test`` certifies but ``QSA`` reports as rejected.
+    """
+    Xt, Yt, Tt, _, _, _ = _split()
+    result = QSA(Xt, Yt, Tt, mode, None, None)
+    cand_X, safe_X, cand_Y, safe_Y, cand_T, safe_T = split_candidate_safety(
+        Xt, Yt, Tt, DEFAULT_CONFIG.candidate_ratio
+    )
+    direct = safety_test(result.theta, result.theta1, safe_X, safe_Y, safe_T, mode)
+    assert direct == result.passed_safety
+    assert (result.diagnostics.failure_mode == "solution_found") == result.passed_safety

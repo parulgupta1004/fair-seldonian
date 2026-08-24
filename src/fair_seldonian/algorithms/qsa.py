@@ -13,6 +13,16 @@ from ..models.logistic_regression import eval_ghat, f_hat, ghat, simple_logistic
 logger = logging.getLogger(__name__)
 
 
+def passes_safety(upper_bound: float) -> bool:
+    """The safety test's decision rule.
+
+    Defined once because three places need it - :func:`QSA`, :func:`safety_test`
+    and :attr:`Diagnostics.failure_mode` - and a criterion that drifts between
+    them would report a model as certified in one and rejected in another.
+    """
+    return bool(upper_bound <= 0.0)
+
+
 class Diagnostics(NamedTuple):
     """Why a run ended the way it did.
 
@@ -34,7 +44,7 @@ class Diagnostics(NamedTuple):
 
     @property
     def failure_mode(self) -> str:
-        if self.safety_upper_bound <= 0.0:
+        if passes_safety(self.safety_upper_bound):
             return "solution_found"
         if self.candidate_upper_bound > 0.0:
             return "candidate_infeasible"
@@ -131,7 +141,7 @@ def QSA(
         diagnostics.optimizer_iterations,
         diagnostics.optimizer_evaluations,
     )
-    return QSAResult(theta, theta1, safety_upper_bound <= 0.0, diagnostics)
+    return QSAResult(theta, theta1, passes_safety(safety_upper_bound), diagnostics)
 
 
 def safety_test(
@@ -159,7 +169,7 @@ def safety_test(
         theta, theta1, safe_data_X, safe_data_Y, safe_data_T, seldonian_type, config
     )
     logger.debug(f"Safety test upperbound: {upper_bound}")
-    return bool(upper_bound <= 0.0)
+    return passes_safety(float(upper_bound))
 
 
 def get_cand_solution(

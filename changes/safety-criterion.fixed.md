@@ -1,0 +1,1 @@
+`QSA`, `safety_test` and `Diagnostics.failure_mode` now share one `passes_safety` predicate. `QSA` does not call `safety_test`, so the pass criterion was written out three times and could drift between them. by @parulgupta1004
