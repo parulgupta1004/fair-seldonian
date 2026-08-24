@@ -22,7 +22,7 @@ from sklearn.metrics import log_loss
 
 from fair_seldonian.algorithms.qsa import cand_obj, split_candidate_safety
 from fair_seldonian.config import SeldonianConfig
-from fair_seldonian.constraints.affine import compile_bounds
+from fair_seldonian.constraints.affine import affine_upper_bound, compile_bounds
 from fair_seldonian.constraints.expression_tree import (
     ROOT_SIDES,
     child_sides,
@@ -429,6 +429,50 @@ def test_affine_bound_is_valid_and_tighter_than_tree_propagation() -> None:
     # The whole point is that the gain is large, not marginal like the
     # constant-skip and union-bound tweaks (both under 2% on this constraint).
     assert (affine_bound - truth) < 0.75 * (tree_bound - truth)
+
+
+@pytest.mark.parametrize(
+    "inequality", [Inequality.HOEFFDING_INEQUALITY, Inequality.EMPIRICAL_BERNSTEIN]
+)
+def test_affine_bound_covers_the_true_constraint_value(inequality: Inequality) -> None:
+    """The affine bound must hold at its nominal rate, not merely at one point.
+
+    Affine bounding is the tightest path we ship, so it is the one where an
+    error would be least likely to look like anything other than a pleasingly
+    small number. Checking ``bound >= truth`` on a single dataset says almost
+    nothing; this repeats it and asserts the *rate*.
+
+    Two details make the check able to fail, which a coverage test has to be
+    before it is worth anything.
+
+    ``p1 != p0``: with equal base rates the true value sits exactly at the kink
+    of ``abs``, where ``|estimate|`` is biased upward and the bound clears the
+    truth however narrow it is. Away from the kink the estimator is roughly
+    unbiased and width starts to matter.
+
+    Rates near 1/2: Hoeffding pays the a-priori range whatever the data does,
+    so it is only near-tight when the observed variance approaches its worst
+    case. Pushed to the boundary the bound would be so slack that any error
+    would hide. As set up here, halving the half-width drops Hoeffding to 0.90
+    and the t-test to 0.80; empirical Bernstein needs roughly a third.
+    """
+    p1, p0, n, delta, trials = 0.6, 0.3, 120, 0.05, 400
+    truth = abs(p1 - p0) - 0.2 * p1
+    root = construct_expr_tree_base(PAPER_CONSTRAINT)
+    T = pd.Series(np.array(["1"] * n + ["0"] * n))
+
+    rng = np.random.default_rng(20)
+    hits = 0
+    for _ in range(trials):
+        y = np.concatenate([rng.binomial(1, p1, n), rng.binomial(1, p0, n)])
+        # pred == Y makes TP(g) exactly the group mean of Y, so the population
+        # value of the constraint is known in closed form rather than estimated.
+        pred = torch.tensor(y.astype(float))
+        bound = affine_upper_bound(
+            root, pd.Series(y), pred, T, delta, inequality=inequality
+        )
+        hits += bound >= truth
+    assert hits / trials >= 1 - delta
 
 
 def test_affine_rejects_constraints_it_cannot_represent() -> None:

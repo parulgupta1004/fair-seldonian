@@ -47,13 +47,19 @@ def main() -> None:
     )
     print(f"train examples: {X_tr.shape[0]}, test examples: {X_te.shape[0]}")
 
-    # 3. Train with QSA. It returns model parameters and a boolean: either a
-    #    model certified to satisfy the fairness constraint with probability
-    #    >= 1 - delta, or `passed=False` meaning "No Solution Found".
-    theta, theta1, passed = QSA(X_tr, Y_tr, T_tr, "opt", None, None)
+    # 3. Train with QSA. The result carries the model parameters, a boolean that
+    #    is True only for a model certified to satisfy the fairness constraint
+    #    with probability >= 1 - delta, and diagnostics explaining the outcome.
+    result = QSA(X_tr, Y_tr, T_tr, "opt", None, None)
+    theta, theta1 = result.theta, result.theta1
 
-    if not passed:
+    if not result.passed_safety:
         print("\nNo Solution Found - QSA could not certify a fair model on this data.")
+        # failure_mode distinguishes the two reasons, which call for different
+        # remedies: "candidate_infeasible" means no feasible model was found at
+        # all, "safety_test_rejected" means one was found but the safety data
+        # could not certify it.
+        print(f"  reason: {result.diagnostics.failure_mode}")
         print("Try more data, a smaller fairness gap, or a larger delta.")
         return
 

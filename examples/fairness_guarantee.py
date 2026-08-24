@@ -29,11 +29,12 @@ def run(label: str, tp0_ratio: float, tp1_ratio: float) -> None:
     X_te, Y_te, T_te, X_tr, Y_tr, T_tr = data_split(
         frac=0.6, all_data=data, random_state=1, m_test=0.3
     )
-    theta, theta1, passed = QSA(X_tr, Y_tr, T_tr, "opt", None, None)
+    result = QSA(X_tr, Y_tr, T_tr, "opt", None, None)
+    theta, theta1 = result.theta, result.theta1
 
     gap = abs(tp1_ratio - tp0_ratio)
     print(f"{label} (group base-rate gap = {gap:.2f}):")
-    if passed:
+    if result.passed_safety:
         ub = float(eval_ghat(theta, theta1, X_te, Y_te, T_te, "opt"))
         print(f"  -> certified fair; fairness upper bound <= {ub:.4f}\n")
     else:
