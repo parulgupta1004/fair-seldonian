@@ -160,6 +160,45 @@ def test_shipped_builders_stay_inside_the_affine_fragment(name: str) -> None:
         pytest.fail(f"{name} no longer compiles to affine forms: {exc}")
 
 
+def test_vendored_layout_still_matches_the_theme() -> None:
+    """``docs/_templates/layout.html`` copies one block out of the theme.
+
+    It re-declares pydata-sphinx-theme's ``extrahead`` so the three search
+    scripts can be deferred; the theme injects them into every page with no
+    loading attribute, which put ~100 kB of render-blocking JavaScript in front
+    of every page view. A theme upgrade that adds or renames a script there
+    would leave our copy loading the wrong set, silently.
+    """
+    pytest.importorskip("pydata_sphinx_theme", reason="docs extra not installed")
+    import pydata_sphinx_theme
+
+    theme = (
+        Path(pydata_sphinx_theme.__file__).parent
+        / "theme"
+        / "pydata_sphinx_theme"
+        / "layout.html"
+    )
+    block = re.search(
+        r"{%-?\s*block extrahead\s*%}(.*?){%-?\s*endblock extrahead\s*%}",
+        theme.read_text(),
+        re.S,
+    )
+    assert block, "theme layout.html no longer defines an 'extrahead' block"
+    upstream = set(re.findall(r"pathto\(\s*'([^']+)'", block.group(1)))
+    ours = set(
+        re.findall(
+            r"pathto\(\s*'([^']+)'",
+            (DOCS / "_templates" / "layout.html").read_text(),
+        )
+    )
+    assert upstream == ours, (
+        "pydata-sphinx-theme's extrahead block changed which scripts it loads.\n"
+        f"  theme: {sorted(upstream)}\n"
+        f"  ours:  {sorted(ours)}\n"
+        "Re-sync docs/_templates/layout.html with the theme, keeping `defer`."
+    )
+
+
 #: The claim that was wrong in four places, in both wordings it appeared in:
 #: "divide by per-group base rates" and "divide by a per-group base rate".
 _DIVISION_CLAIM = re.compile(r"divid\w*\s+by\s+(?:a\s+)?per-group\s+base\s+rate")

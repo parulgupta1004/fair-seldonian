@@ -24,6 +24,9 @@ jobs:
           python-version: "3.12"
       # The docs extra is the single source for these; do not re-list them here.
       - run: pip install -e ".[dev,docs]"
+      # Some docs guards need the theme installed, which the test matrix does not
+      # have, so they skip there. Run them where the docs are actually built.
+      - run: pytest tests/test_docs_sync.py -q --no-cov
       # -W turns warnings into errors. Without it an example notebook that is
       # never added to the toctree still builds -- as an orphan page nothing
       # links to -- and the build stays green.

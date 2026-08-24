@@ -65,6 +65,43 @@ table.fs-generated th {
   color: var(--pst-color-warning);
 }
 
+/* -- Search ---------------------------------------------------------------- */
+
+/* One search affordance per page, in the navbar at the top right (the sidebar
+ * deliberately has none -- see html_sidebars in conf.py). The theme's default
+ * button is a wide pill sized to fit the words "Search" plus a "Ctrl+K" hint;
+ * shrink it to something closer to an icon button and let the hint go first
+ * when space is tight. */
+.navbar-persistent--container .search-button-field {
+  min-width: 0;
+  max-width: 11rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.82rem;
+  border-radius: 1rem;
+}
+
+.navbar-persistent--container .search-button-field .search-button__default-text {
+  margin-inline: 0.35rem;
+}
+
+/* Below a wide desktop the keyboard hint is the first thing worth dropping: it
+ * is the least useful part of the control and the widest. */
+@media (max-width: 1200px) {
+  .navbar-persistent--container .search-button-field .search-button__kbd-shortcut {
+    display: none;
+  }
+}
+
+/* Narrower still, keep only the magnifying glass. */
+@media (max-width: 992px) {
+  .navbar-persistent--container .search-button-field .search-button__default-text {
+    display: none;
+  }
+  .navbar-persistent--container .search-button-field {
+    padding: 0.25rem 0.45rem;
+  }
+}
+
 /* -- Landing page --------------------------------------------------------- */
 
 .fs-hero {

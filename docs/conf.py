@@ -166,6 +166,10 @@ html_theme_options = {
     "show_prev_next": True,
     "show_toc_level": 2,
     "use_edit_page_button": True,
+    # Results appear as you type, in a modal, instead of requiring Enter and a
+    # full page load of search.html. The index is already in memory by then --
+    # see _templates/layout.html -- so the work per keystroke is a lookup.
+    "search_as_you_type": True,
     # Expand the current section's pages rather than leaving them collapsed
     # behind a caret; there are only four or five per section.
     "show_nav_level": 2,

@@ -1,0 +1,39 @@
+{% extends "!layout.html" %}
+
+{#
+  Load the search machinery without blocking the render.
+
+  pydata-sphinx-theme's own layout.html injects searchtools.js, language_data.js
+  and searchindex.js into <head> on *every* page, with no loading attribute, so
+  the browser stops parsing to fetch and execute roughly 100 kB of JavaScript
+  before it paints anything -- on every page view, whether or not the reader ever
+  opens search. Sphinx's built-in search.html defers its copy of searchindex.js
+  for exactly this reason; the theme's does not.
+
+  Deferring all three is safe here:
+
+  * deferred scripts execute in document order, so searchtools.js still defines
+    ``Search`` before searchindex.js calls ``Search.setIndex``;
+  * pydata-sphinx-theme.js is itself deferred and only reaches for
+    ``Search.performSearch`` inside a DOMContentLoaded handler, which fires after
+    every deferred script has run.
+
+  This block is a verbatim copy of the theme's ``extrahead`` with the three
+  script tags deferred. ``tests/test_docs_sync.py`` fails if the upstream block
+  gains or renames a script, so a theme upgrade cannot silently strand it.
+#}
+{%- block extrahead %}
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="{{ language }}"/>
+  <meta name="docsearch:version" content="{{ version }}" />
+  {%- if last_updated %}
+    <meta name="docbuild:last-update" content="{{ last_updated | e }}"/>
+  {%- endif %}
+  {% if pagename == 'search' %}
+    {# Search tools are already loaded on the search page. Don't load them twice. #}
+  {% else %}
+    <script src="{{ pathto('_static/searchtools.js', 1) | e }}" defer></script>
+    <script src="{{ pathto('_static/language_data.js', 1) | e }}" defer></script>
+    <script src="{{ pathto('searchindex.js', 1) | e }}" defer></script>
+  {% endif %}
+{%- endblock extrahead %}
