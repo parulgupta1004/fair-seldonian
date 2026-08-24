@@ -9,13 +9,12 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/parulgupta1004/fair-seldonian/blob/master/LICENSE)
 [![Docs](https://img.shields.io/badge/docs-Sphinx-8CA1AF?logo=readthedocs&logoColor=white)](https://parulgupta1004.github.io/fair-seldonian/)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/fair-seldonian?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/fair-seldonian)
-[![Paper](https://img.shields.io/badge/paper-Science%20(2019)-orange)](https://www.science.org/doi/10.1126/science.aag3311)
 
 ---
 
 A Python framework implementing the **Quasi-Seldonian Algorithm (QSA)** for training ML models that provably satisfy fairness constraints. Given a behavioral constraint and a confidence level *&delta;*, the algorithm either returns a model satisfying the constraint with probability &ge; 1 &minus; *&delta;*, or returns **No Solution Found** — never an unsafe model.
 
-Built on the Seldonian algorithm framework by [Thomas et al. (2019)](https://www.science.org/doi/10.1126/science.aag3311), with extensions for tighter confidence bounds through constant-aware delta allocation, union bound optimization, and decomposed candidate-safety intervals.
+Built on the Seldonian algorithm framework, with extensions for tighter confidence bounds through constant-aware delta allocation, union bound optimization, affine-form compilation, and a choice of concentration inequality.
 
 ## Quick links
 
@@ -24,7 +23,6 @@ Built on the Seldonian algorithm framework by [Thomas et al. (2019)](https://www
 | **Documentation** | [parulgupta1004.github.io/fair-seldonian](https://parulgupta1004.github.io/fair-seldonian/) |
 | **Repository** | [github.com/parulgupta1004/fair-seldonian](https://github.com/parulgupta1004/fair-seldonian) |
 | **Example notebook** | [examples/quickstart.ipynb](examples/quickstart.ipynb) |
-| **Paper** | Thomas et al., *Science* 366 (2019) — [doi:10.1126/science.aag3311](https://www.science.org/doi/10.1126/science.aag3311) |
 
 ## Installation
 
@@ -160,10 +158,6 @@ docs for how to choose.
   year   = {2020}
 }
 ```
-
-This work builds on:
-
-> Thomas, P.S., da Silva, B.C., Barto, A.G., Giguere, S., Brun, Y., & Brunskill, E. (2019). "Preventing undesirable behavior of intelligent machines." *Science*, 366(6468), 999–1004.
 
 ## Contributing
 

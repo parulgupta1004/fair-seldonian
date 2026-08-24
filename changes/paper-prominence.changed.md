@@ -1,0 +1,1 @@
+Removed the prominent placements of the Thomas et al. (2019) paper — the README badge and quick-links row, the docs landing page's "Paper" row and citation callout — leaving the full citation in the bibliography and the inline `[Thomas2019]` citations that source specific technical claims. by @parulgupta1004

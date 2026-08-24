@@ -79,21 +79,8 @@ Get started
 
    * - **Repository**
      - `github.com/parulgupta1004/fair-seldonian <https://github.com/parulgupta1004/fair-seldonian>`_
-   * - **Paper**
-     - Thomas et al., *Science* 366 (2019) —
-       `doi:10.1126/science.aag3311 <https://www.science.org/doi/10.1126/science.aag3311>`_
    * - **Python**
      - 3.10+
-
-.. note::
-
-   For the foundational work on Seldonian algorithms, see:
-
-   Thomas, P.S., da Silva, B.C., Barto, A.G., Giguere, S., Brun, Y., &
-   Brunskill, E. (2019). "Preventing undesirable behavior of intelligent
-   machines." *Science*, 366(6468), 999–1004.
-   `[DOI] <https://www.science.org/doi/10.1126/science.aag3311>`_
-   `[Project site] <https://aisafety.cs.umass.edu>`_
 
 .. toctree::
    :hidden:
