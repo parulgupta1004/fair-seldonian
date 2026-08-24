@@ -34,7 +34,8 @@ Notation
 Quasi-Seldonian Algorithm
 --------------------------
 
-The QSA consists of two computational phases after data splitting.
+The Quasi-Seldonian Algorithm (QSA) consists of two computational phases after
+data splitting.
 
 **Candidate selection.** Find :math:`\theta^*` by solving:
 

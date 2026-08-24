@@ -1,9 +1,9 @@
 Algorithm Variants
 ==================
 
-The framework implements several optimizations to the base Seldonian algorithm
-[Thomas2019]_ that tighten confidence bounds, leading to improved solution rates
-and objective performance. Each variant can be selected via the
+The framework implements several optimizations to the base Quasi-Seldonian
+Algorithm (QSA) [Thomas2019]_ that tighten confidence bounds, leading to improved
+solution rates and objective performance. Each variant can be selected via the
 ``seldonian_type`` argument.
 
 This axis is independent of the :doc:`confidence inequality <inequalities>`: the

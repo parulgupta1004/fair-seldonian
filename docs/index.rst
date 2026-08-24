@@ -8,7 +8,7 @@ Fair-Seldonian
 **Train a model that provably satisfies a fairness constraint — or refuses.**
 
 Given a behavioural constraint and a confidence level :math:`\delta`, the
-Quasi-Seldonian Algorithm returns a model satisfying the constraint with
+Quasi-Seldonian Algorithm (QSA) returns a model satisfying the constraint with
 probability :math:`\geq 1 - \delta`, or returns **No Solution Found**. It never
 returns a model it cannot certify.
 
@@ -29,7 +29,8 @@ returns a model it cannot certify.
       :link-type: doc
 
       Demographic parity, equal opportunity, equalized odds, error rate and
-      error-rate parity — ready to use, or write your own in the constraint DSL.
+      error-rate parity — ready to use, or write your own in the constraint
+      domain-specific language (DSL).
 
    .. grid-item-card:: :octicon:`meter;1.1em;sd-mr-2` Tighter bounds
       :link: variants
