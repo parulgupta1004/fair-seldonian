@@ -142,8 +142,7 @@ uv run python examples/quickstart.py
 | `opt` | All optimizations combined |
 
 ```bash
-uv run python -m fair_seldonian.experiments.runner opt
-uv run python -m fair_seldonian.experiments.plots
+uv run python scripts/run_paper_experiments.py --out exp/paper --only opt
 ```
 
 ## Citation

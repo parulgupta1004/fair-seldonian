@@ -251,3 +251,40 @@ def test_notebook_outputs_are_current(notebook: Path) -> None:
                     f"--- committed ---\n{want_text}\n"
                     f"--- produced now ---\n{got_text}"
                 )
+
+
+# --------------------------------------------------------------------------
+# Markdown code blocks
+# --------------------------------------------------------------------------
+#: Markdown files whose fenced ``python`` blocks form one running script.
+#: Sphinx can single-source ``.rst`` snippets from ``examples/`` with
+#: ``literalinclude``, but README.md is rendered by GitHub and PyPI, where that
+#: directive does not exist -- so the only way to keep its code honest is to run
+#: it. The blocks are executed in one shared namespace because later ones build
+#: on earlier ones.
+MARKDOWN_WITH_CODE = ["README.md", "docs/fairness_constraints.md"]
+
+_PY_BLOCK = re.compile(r"```python\n(.*?)```", re.S)
+
+
+@pytest.mark.parametrize("relative", MARKDOWN_WITH_CODE)
+def test_markdown_python_blocks_execute(relative: str) -> None:
+    """Documentation code must run against the current API.
+
+    This is the check that would have caught the README and quickstart snippets
+    unpacking ``QSA`` into three values after it began returning ``QSAResult``:
+    a break nothing executed, so nothing noticed.
+    """
+    path = Path(__file__).resolve().parent.parent / relative
+    blocks = _PY_BLOCK.findall(path.read_text())
+    assert blocks, f"no python blocks found in {relative} - has the format changed?"
+
+    namespace: dict = {}
+    for index, block in enumerate(blocks):
+        try:
+            exec(compile(block, f"{relative} block {index}", "exec"), namespace)
+        except Exception as exc:  # noqa: BLE001 - the failure message is the point
+            pytest.fail(
+                f"{relative} block {index} failed: {type(exc).__name__}: {exc}\n"
+                f"--- block ---\n{block}"
+            )

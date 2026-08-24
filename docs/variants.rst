@@ -57,7 +57,7 @@ candidate ratio.
 
 .. code-block:: bash
 
-   uv run python -m fair_seldonian.experiments.runner base
+   uv run python scripts/run_paper_experiments.py --out exp/paper --only base
 
 .. _variant-mod:
 
@@ -81,7 +81,7 @@ The improvement is most pronounced at extreme candidate ratios.
 
 .. code-block:: bash
 
-   uv run python -m fair_seldonian.experiments.runner mod
+   uv run python scripts/run_paper_experiments.py --out exp/paper --only mod
 
 .. _variant-const:
 
@@ -112,7 +112,7 @@ to the non-constant child.
 
 .. code-block:: bash
 
-   uv run python -m fair_seldonian.experiments.runner const
+   uv run python scripts/run_paper_experiments.py --out exp/paper --only const
 
 .. _variant-bound:
 
@@ -155,7 +155,7 @@ interval for each occurrence, since
 
 .. code-block:: bash
 
-   uv run python -m fair_seldonian.experiments.runner bound
+   uv run python scripts/run_paper_experiments.py --out exp/paper --only bound
 
 .. _variant-opt:
 
@@ -168,7 +168,7 @@ delta allocation (:ref:`variant-const`), and union bound optimization
 
 .. code-block:: bash
 
-   uv run python -m fair_seldonian.experiments.runner opt
+   uv run python scripts/run_paper_experiments.py --out exp/paper --only opt
 
 .. _variant-lagrangian:
 
