@@ -382,6 +382,49 @@ def test_every_equation_renders_under_katex() -> None:
     assert not broken, "KaTeX cannot render:\n  " + "\n  ".join(broken)
 
 
+#: Written-out counts, which is how the docs spell them.
+_NUMBER_WORDS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+}
+
+
+def test_docs_do_not_state_a_stale_count() -> None:
+    """A number written into prose is a fact with no way to check itself.
+
+    The introduction said "the framework supports two concentration
+    inequalities" long after there were four; the theory page said "three
+    optimizations" once there were six variants. Generation fixes the tables,
+    but a sentence counting things is still hand-written, so count them here.
+    """
+    expected = {
+        "concentration inequalities": len(Inequality),
+        "inequalities": len(Inequality),
+        "fairness definitions": len(FAIRNESS_CONSTRAINTS) + 1,  # + error_rate
+    }
+    pattern = re.compile(
+        r"\b(" + "|".join(_NUMBER_WORDS) + r")\s+(" + "|".join(expected) + r")\b",
+        re.I,
+    )
+    wrong = []
+    for path in sorted([*DOCS.glob("*.rst"), *DOCS.glob("*.md")]):
+        for word, noun in pattern.findall(path.read_text()):
+            said, truth = _NUMBER_WORDS[word.lower()], expected[noun.lower()]
+            if said != truth:
+                wrong.append(f"{path.name}: '{word} {noun}' but there are {truth}")
+    assert not wrong, "documented counts disagree with the code:\n  " + "\n  ".join(
+        wrong
+    )
+
+
 #: The claim that was wrong in four places, in both wordings it appeared in:
 #: "divide by per-group base rates" and "divide by a per-group base rate".
 _DIVISION_CLAIM = re.compile(r"divid\w*\s+by\s+(?:a\s+)?per-group\s+base\s+rate")

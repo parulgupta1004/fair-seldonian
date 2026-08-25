@@ -77,22 +77,15 @@ Behavioral constraints are specified as strings in
 `reverse Polish notation <https://en.wikipedia.org/wiki/Reverse_Polish_notation>`_
 (RPN) and parsed into expression trees for evaluation. The supported primitives are:
 
-.. list-table::
-   :header-rows: 1
-   :widths: 20 80
-
-   * - Primitive
-     - Meaning
-   * - ``TP(g)``
-     - True positive rate for group :math:`g`
-   * - ``FP(g)``
-     - False positive rate for group :math:`g`
-   * - ``TN(g)``
-     - True negative rate for group :math:`g`
-   * - ``FN(g)``
-     - False negative rate for group :math:`g`
+.. fs-basevar-table::
 
 Supported operators: ``+``, ``-``, ``*``, ``/``, ``^``, ``abs``.
+
+The distinction between the three kinds is easy to miss and it matters. A *cell*
+such as ``TP(g)`` is a fraction of the whole of group :math:`g` — every row of
+the group contributes, and the four cells sum to 1. A *rate* such as ``TPR(g)``
+is a mean over only that group's positive rows, so it carries a smaller sample
+size and a wider interval. :doc:`fairness_constraints` covers how to choose.
 
 **Example.** The default constraint string::
 
@@ -104,34 +97,42 @@ encodes the infix expression:
 
    \left| \text{TP}(1) - \text{TP}(0) \right| - 0.25 \cdot \text{TP}(1) \leq 0
 
-This requires the absolute difference in true positive rates between group 1 and
-group 0 to be at most 25% of group 1's true positive rate — a form of
-*relaxed equalized opportunity*.
+This requires the gap between the groups' true-positive *cells* to be at most
+25% of group 1's cell.
+
+.. note::
+
+   This is **not** equal opportunity, despite the resemblance. Equal opportunity
+   compares true-positive *rates* — ``TPR(g)``, conditioned on :math:`Y = 1` —
+   and is available as
+   :func:`~fair_seldonian.constraints.fairness.equal_opportunity`. The default
+   constraint compares cells, which is a different quantity computed over a
+   different set of rows.
 
 Confidence Bound Propagation
 ----------------------------
 
 Evaluating :math:`g(\theta)` requires computing confidence intervals for each
 leaf node (e.g., ``TP(1)``) and propagating them through the expression tree
-using interval arithmetic. The framework supports two concentration inequalities:
+using interval arithmetic. Four concentration inequalities are available, three
+of them distribution-free:
 
-**Hoeffding's inequality** [Hoeffding1963]_. For a bounded random variable
-with :math:`n` samples:
+.. fs-inequality-table::
+
+**Hoeffding's inequality** [Hoeffding1963]_ is the default. For a bounded random
+variable with :math:`n` samples:
 
 .. math::
 
    \Pr\!\left[\left|\hat{p} - p\right| \geq \epsilon\right]
    \leq 2\exp\!\left(-2n\epsilon^2\right)
 
-**Student's t-test** [Student1908]_. Uses the sample variance for tighter
-bounds when the distribution is approximately normal:
-
-.. math::
-
-   \hat{p} \pm t_{n-1, 1-\delta} \cdot \frac{s}{\sqrt{n}}
-
-where :math:`s` is the sample standard deviation and :math:`t_{n-1, 1-\delta}` is the
-critical value of the t-distribution.
+Empirical Bernstein and betting both adapt to the variance they observe, and are
+tighter than Hoeffding whenever a group's rate is far from :math:`1/2`.
+**Student's t** assumes the sample mean is approximately normal — an appeal to
+the central limit theorem rather than a finite-sample bound, and what puts the
+*quasi* in quasi-Seldonian. :doc:`inequalities` derives each and shows where the
+ordering between them changes.
 
 At each internal node of the expression tree, the confidence intervals of the
 children are combined according to the rules of interval arithmetic
