@@ -1,0 +1,1 @@
+Corrected the predicted-bound formulas on the theory and variants pages, which wrote `ln(1/delta)` unconditionally. The implementation uses `ln(2/delta)` for a two-sided interval and `ln(1/delta)` only for a one-sided one; both pages now write `ln(c/delta)` and say which is which. by @parulgupta1004

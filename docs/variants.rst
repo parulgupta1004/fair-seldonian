@@ -53,10 +53,15 @@ on :math:`g(\theta)` is estimated as:
 
 .. math::
 
-   \hat{p} \pm 2\sqrt{\frac{\ln(1/\delta)}{2\,|\mathcal{D}_s|}}
+   \hat{p} \pm 2\sqrt{\frac{\ln(c/\delta)}{2\,|\mathcal{D}_s|}}
 
 where :math:`|\mathcal{D}_s| = (1 - r) \cdot |\mathcal{D}|` and :math:`r` is the
 candidate ratio.
+
+Here :math:`c = 2` for a two-sided interval and :math:`c = 1` for a one-sided
+one; the root of a constraint tree needs only its upper endpoint, so leaves that
+inherit that one-sidedness pay the smaller term. See :doc:`inequalities`.
+
 
 **Delta splitting.** At each binary operator in the constraint expression tree,
 :math:`\delta` is split uniformly:
@@ -82,8 +87,8 @@ The modified bound decomposes the interval into separate terms:
 
 .. math::
 
-   \hat{p} \pm \underbrace{\sqrt{\frac{\ln(1/\delta)}{2\,|\mathcal{D}_c|}}}_{\text{candidate error}}
-   + \underbrace{\sqrt{\frac{\ln(1/\delta)}{2\,|\mathcal{D}_s|}}}_{\text{safety error}}
+   \hat{p} \pm \underbrace{\sqrt{\frac{\ln(c/\delta)}{2\,|\mathcal{D}_c|}}}_{\text{candidate error}}
+   + \underbrace{\sqrt{\frac{\ln(c/\delta)}{2\,|\mathcal{D}_s|}}}_{\text{safety error}}
 
 **When does this help?** When :math:`|\mathcal{D}_c| \neq |\mathcal{D}_s|`, the
 decomposed form yields a tighter interval than doubling the safety-only term.
