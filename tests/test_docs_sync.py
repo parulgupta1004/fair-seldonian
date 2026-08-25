@@ -277,6 +277,68 @@ def test_every_exported_name_is_in_some_module_all() -> None:
     )
 
 
+# -- The generated figures must keep saying what the prose says --------------
+
+
+def _figure_script():
+    """Import ``scripts/make_docs_figures.py`` without running its ``main``."""
+    pytest.importorskip("matplotlib", reason="plots extra not installed")
+    path = REPO_ROOT / "scripts" / "make_docs_figures.py"
+    spec = importlib.util.spec_from_file_location("make_docs_figures", path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules.setdefault("make_docs_figures", module)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_committed_figures_exist() -> None:
+    """The docs reference them directly; a missing file fails the build."""
+    generated = DOCS / "_static" / "generated"
+    for name in ("interval-widths.svg", "variant-slack.svg"):
+        f = generated / name
+        assert f.exists(), f"{name} is missing - run scripts/make_docs_figures.py"
+        assert f.stat().st_size > 5_000, f"{name} looks truncated"
+
+
+def test_interval_width_figure_still_shows_what_it_claims() -> None:
+    """The figure's whole point is that the ordering flips between the panels.
+
+    Recomputed cheaply rather than by parsing the SVG: the claim is about the
+    numbers, and the numbers come from the same helpers the figure draws.
+    """
+    mod = _figure_script()
+    sizes = [2000]
+    low = mod.half_width_curves(sizes, 0.1, 3)
+    high = mod.half_width_curves(sizes, 0.5, 3)
+    at = lambda c, k: c[k][0]  # noqa: E731
+    shown_low = {k: round(v[0], 5) for k, v in low.items()}
+    shown_high = {k: round(v[0], 5) for k, v in high.items()}
+
+    assert (
+        at(low, "BETTING")
+        < at(low, "EMPIRICAL_BERNSTEIN")
+        < at(low, "HOEFFDING_INEQUALITY")
+    ), f"left panel ordering no longer holds: {shown_low}"
+    assert at(high, "EMPIRICAL_BERNSTEIN") > at(high, "HOEFFDING_INEQUALITY"), (
+        "the right panel is drawn to show empirical Bernstein crossing above "
+        f"Hoeffding at rate 0.5; it no longer does: {shown_high}"
+    )
+
+
+def test_variant_slack_figure_still_shows_what_it_claims() -> None:
+    """``affine`` roughly halving the slack is the figure's headline."""
+    mod = _figure_script()
+    names, slack, _ = mod.variant_slack()
+    by = dict(zip(names, slack))
+    assert by["affine"] < 0.6 * by["base"], (
+        "the docs say affine roughly halves the slack; measured "
+        f"affine={by['affine']:.4f} against base={by['base']:.4f}"
+    )
+    assert by["opt"] <= by["const"] <= by["base"], f"tree variants not ordered: {by}"
+    assert by["opt"] <= by["bound"] <= by["base"], f"tree variants not ordered: {by}"
+
+
 #: ``:math:`...``` and ``.. math::`` blocks, which KaTeX must be able to render.
 _INLINE_MATH = re.compile(r":math:`([^`]+)`")
 _BLOCK_MATH = re.compile(r"^\.\. math::\s*\n((?:\s*\n|[ \t]+.*\n)+)", re.M)
@@ -318,6 +380,49 @@ def test_every_equation_renders_under_katex() -> None:
         except Exception as exc:  # noqa: BLE001 - any failure is a failure
             broken.append(f"{page}: {tex[:60]!r} -> {str(exc)[:90]}")
     assert not broken, "KaTeX cannot render:\n  " + "\n  ".join(broken)
+
+
+#: Written-out counts, which is how the docs spell them.
+_NUMBER_WORDS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+}
+
+
+def test_docs_do_not_state_a_stale_count() -> None:
+    """A number written into prose is a fact with no way to check itself.
+
+    The introduction said "the framework supports two concentration
+    inequalities" long after there were four; the theory page said "three
+    optimizations" once there were six variants. Generation fixes the tables,
+    but a sentence counting things is still hand-written, so count them here.
+    """
+    expected = {
+        "concentration inequalities": len(Inequality),
+        "inequalities": len(Inequality),
+        "fairness definitions": len(FAIRNESS_CONSTRAINTS) + 1,  # + error_rate
+    }
+    pattern = re.compile(
+        r"\b(" + "|".join(_NUMBER_WORDS) + r")\s+(" + "|".join(expected) + r")\b",
+        re.I,
+    )
+    wrong = []
+    for path in sorted([*DOCS.glob("*.rst"), *DOCS.glob("*.md")]):
+        for word, noun in pattern.findall(path.read_text()):
+            said, truth = _NUMBER_WORDS[word.lower()], expected[noun.lower()]
+            if said != truth:
+                wrong.append(f"{path.name}: '{word} {noun}' but there are {truth}")
+    assert not wrong, "documented counts disagree with the code:\n  " + "\n  ".join(
+        wrong
+    )
 
 
 #: The claim that was wrong in four places, in both wordings it appeared in:

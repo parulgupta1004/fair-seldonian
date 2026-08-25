@@ -12,6 +12,33 @@ are combined. Every pairing is accepted.
 
 .. fs-variant-table::
 
+.. figure:: _static/generated/variant-slack.svg
+   :align: center
+   :width: 92%
+   :alt: Horizontal bars of the slack each seldonian_type leaves over the true
+         constraint value, from base at 0.0513 down to affine at 0.0245.
+
+   Slack — how far each variant's bound sits above the true constraint value, on
+   one model and one dataset. Produced by ``scripts/make_docs_figures.py``.
+
+Read it as a ranking rather than as absolute numbers, which move with the data.
+Three things it shows that the table cannot:
+
+* **The tree optimizations are incremental.** ``const`` and ``bound`` each buy a
+  little, and ``opt`` about as much as the two together — a few percent, not a
+  step change.
+* **Affine is the step change.** It roughly halves the slack, which at a
+  :math:`1/\sqrt{n}` rate is worth about four times the data.
+* **``mod`` looks identical to ``base`` here, and should.** It changes the
+  *predicted* bound that steers candidate selection, not the safety bound being
+  measured. Its effect shows up as a higher solution rate, not a tighter
+  certificate.
+
+The figure is drawn on the default constraint rather than demographic parity
+because that one exercises every variant: it repeats ``TP(1)``, which is what
+``bound`` merges, and carries a literal ``0.25``, which is what ``const``
+exploits. On demographic parity both are no-ops.
+
 .. _variant-base:
 
 Baseline QSA (``base``)
@@ -26,10 +53,15 @@ on :math:`g(\theta)` is estimated as:
 
 .. math::
 
-   \hat{p} \pm 2\sqrt{\frac{\ln(1/\delta)}{2\,|\mathcal{D}_s|}}
+   \hat{p} \pm 2\sqrt{\frac{\ln(c/\delta)}{2\,|\mathcal{D}_s|}}
 
 where :math:`|\mathcal{D}_s| = (1 - r) \cdot |\mathcal{D}|` and :math:`r` is the
 candidate ratio.
+
+Here :math:`c = 2` for a two-sided interval and :math:`c = 1` for a one-sided
+one; the root of a constraint tree needs only its upper endpoint, so leaves that
+inherit that one-sidedness pay the smaller term. See :doc:`inequalities`.
+
 
 **Delta splitting.** At each binary operator in the constraint expression tree,
 :math:`\delta` is split uniformly:
@@ -55,8 +87,8 @@ The modified bound decomposes the interval into separate terms:
 
 .. math::
 
-   \hat{p} \pm \underbrace{\sqrt{\frac{\ln(1/\delta)}{2\,|\mathcal{D}_c|}}}_{\text{candidate error}}
-   + \underbrace{\sqrt{\frac{\ln(1/\delta)}{2\,|\mathcal{D}_s|}}}_{\text{safety error}}
+   \hat{p} \pm \underbrace{\sqrt{\frac{\ln(c/\delta)}{2\,|\mathcal{D}_c|}}}_{\text{candidate error}}
+   + \underbrace{\sqrt{\frac{\ln(c/\delta)}{2\,|\mathcal{D}_s|}}}_{\text{safety error}}
 
 **When does this help?** When :math:`|\mathcal{D}_c| \neq |\mathcal{D}_s|`, the
 decomposed form yields a tighter interval than doubling the safety-only term.

@@ -9,28 +9,28 @@ mathematical background they share.
 .. grid:: 1 1 2 2
    :gutter: 3
 
-   .. grid-item-card:: Mathematical background
+   .. grid-item-card:: :octicon:`book;1.1em;sd-mr-2` Mathematical background
       :link: theory
       :link-type: doc
 
       Candidate selection and the safety test, delta splitting, interval
       arithmetic, and the predicted bound that steers the optimizer.
 
-   .. grid-item-card:: What you constrain
+   .. grid-item-card:: :octicon:`law;1.1em;sd-mr-2` What you constrain
       :link: fairness_constraints
       :link-type: doc
 
       The five shipped fairness definitions, how to choose between them, and the
       base variables you write your own constraints over.
 
-   .. grid-item-card:: How wide each interval is
+   .. grid-item-card:: :octicon:`arrow-both;1.1em;sd-mr-2` How wide each interval is
       :link: inequalities
       :link-type: doc
 
       Hoeffding, empirical Bernstein, betting and Student's t — what each
       assumes, and which is tighter under what conditions.
 
-   .. grid-item-card:: How intervals combine
+   .. grid-item-card:: :octicon:`git-merge;1.1em;sd-mr-2` How intervals combine
       :link: variants
       :link-type: doc
 

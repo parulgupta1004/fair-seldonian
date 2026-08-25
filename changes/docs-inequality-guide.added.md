@@ -1,0 +1,1 @@
+Added a "which to use" guide to the concentration-inequalities page: when to stay on Hoeffding, when a small group rate makes empirical Bernstein worth it, and when to pay betting's compute for the tightest sound bound. by @parulgupta1004

@@ -45,20 +45,36 @@ data splitting.
    \quad \text{s.t.} \quad \hat{g}_c(\theta, \mathcal{D}_c) \leq 0
 
 where :math:`\hat{g}_c` is the *predicted* upper bound — an estimate of what
-the safety test bound will be, computed using the candidate data. If
-:math:`\hat{g}_c(\theta) > 0` for all :math:`\theta` explored by the optimizer,
-the objective is penalized:
+the safety test bound will be, computed using the candidate data.
+
+The constraint is not imposed as a hard barrier. What is actually minimised is
+the log loss plus an exact penalty on the violation:
 
 .. math::
 
-   \tilde{f}(\theta) =
-   \begin{cases}
-   f(\theta) & \text{if } \hat{g}_c(\theta) \leq 0 \\
-   -C - \hat{g}_c(\theta) & \text{otherwise}
-   \end{cases}
+   \tilde{f}(\theta) = \underbrace{-f(\theta)}_{\text{log loss}}
+   \; + \; \lambda \cdot \max\bigl(0,\; \hat{g}_c(\theta)\bigr)
 
-where :math:`C` is a large constant (default :math:`10{,}000`) that ensures
-constraint-violating solutions are strongly disfavored.
+with :math:`\lambda` set by
+:attr:`~fair_seldonian.config.SeldonianConfig.penalty`. This is continuous
+everywhere, order 1, and equal to the log loss on the feasible side.
+
+.. important::
+
+   The tempting alternative — return a large constant plus
+   :math:`\hat{g}_c` when infeasible, and the loss when feasible — does not
+   work here, and the reason is worth knowing because the failure is silent.
+
+   SciPy's Powell convergence test is *relative*. With an objective of order
+   :math:`10^4` and the default ``ftol`` of :math:`10^{-4}`, the stopping
+   threshold works out near :math:`1.0`, while :math:`\hat{g}_c` varies by only
+   about :math:`10^{-2}` across the whole parameter space. Powell then reports
+   success after a single iteration while still infeasible, and ``max_iter``
+   never binds. Every run returns **No Solution Found**, and nothing about it
+   looks like a bug.
+
+   Keeping the objective order 1 is what gives the optimizer usable signal on
+   the infeasible side.
 
 **Safety test.** Given :math:`\theta^*`, compute the upper confidence bound
 on :math:`g(\theta^*)` using the safety data:
@@ -155,15 +171,19 @@ statistical uncertainty from both data splits.
 
 .. math::
 
-   \hat{p} \pm 2\sqrt{\frac{\ln(1/\delta)}{2 \, |\mathcal{D}_s|}}
+   \hat{p} \pm 2\sqrt{\frac{\ln(c/\delta)}{2 \, |\mathcal{D}_s|}}
 
 **Decomposed prediction** (``mod`` mode) separates candidate and safety
 estimation error:
 
 .. math::
 
-   \hat{p} \pm \sqrt{\frac{\ln(1/\delta)}{2 \, |\mathcal{D}_c|}}
-   + \sqrt{\frac{\ln(1/\delta)}{2 \, |\mathcal{D}_s|}}
+   \hat{p} \pm \sqrt{\frac{\ln(c/\delta)}{2 \, |\mathcal{D}_c|}}
+   + \sqrt{\frac{\ln(c/\delta)}{2 \, |\mathcal{D}_s|}}
+
+Here :math:`c = 2` for a two-sided interval and :math:`c = 1` for a one-sided
+one; the root of a constraint tree needs only its upper endpoint, so leaves that
+inherit that one-sidedness pay the smaller term. See :doc:`inequalities`.
 
 The decomposed form yields tighter bounds when :math:`|\mathcal{D}_c|` and
 :math:`|\mathcal{D}_s|` differ substantially. See :doc:`variants` for the full
