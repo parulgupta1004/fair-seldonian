@@ -25,7 +25,7 @@ jobs:
       # KaTeX pre-renders the math during the build, which shells out to node.
       # The runner image ships one, but declare it: without node the build dies
       # with a bare FileNotFoundError that says nothing about why.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       # The docs extra is the single source for these; do not re-list them here.
